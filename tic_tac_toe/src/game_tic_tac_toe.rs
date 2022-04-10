@@ -1,16 +1,10 @@
+use common::assert_vec_eq;
+use common::Message;
 use itertools::iproduct;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
         $x.trim().parse::<$t>().unwrap()
-    };
-}
-
-macro_rules! assert_vec_eq {
-    ($v1:expr, $v2:expr) => {
-        assert!($v1.iter().all(|m| $v2.contains(m)));
-        assert!($v2.iter().all(|m| $v1.contains(m)));
-        assert_eq!($v1.len(), $v2.len());
     };
 }
 
@@ -33,11 +27,6 @@ struct TicTacToeGame {
 
     last_move: Option<(u8, u8)>,
     winners: Option<(bool, bool)>,
-}
-
-struct Message {
-    player_id: u8,
-    message: Vec<String>,
 }
 
 impl TicTacToeGame {
