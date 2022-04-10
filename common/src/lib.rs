@@ -11,3 +11,9 @@ pub struct Message {
     pub player_id: u8,
     pub message: Vec<String>,
 }
+
+pub trait Game {
+    fn turn(&self) -> Option<Message>;
+
+    fn play(&mut self, msg: String);
+}

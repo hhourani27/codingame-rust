@@ -1,4 +1,5 @@
 use common::assert_vec_eq;
+use common::Game;
 use common::Message;
 use itertools::iproduct;
 
@@ -144,8 +145,10 @@ impl TicTacToeGame {
 
         winning_configurations.contains(&bit_9)
     }
+}
 
-    pub fn turn(&self) -> Option<Message> {
+impl Game for TicTacToeGame {
+    fn turn(&self) -> Option<Message> {
         // If game is over, return None
         if self.active == false {
             return None;
@@ -176,7 +179,7 @@ impl TicTacToeGame {
         })
     }
 
-    pub fn play(&mut self, msg: String) {
+    fn play(&mut self, msg: String) {
         // (1) Extract move information
         let _move = msg.split(" ").collect::<Vec<_>>();
         let row = parse_input!(_move[0], u8);
