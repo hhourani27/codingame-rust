@@ -1,6 +1,4 @@
-use common::assert_vec_eq;
-use common::Game;
-use common::Message;
+use common::{Game, Message};
 use itertools::iproduct;
 
 macro_rules! parse_input {
@@ -250,6 +248,7 @@ impl Game for TicTacToeGame {
 }
 
 #[cfg(test)]
+use common::assert_vec_eq;
 mod tests {
     use super::*;
 

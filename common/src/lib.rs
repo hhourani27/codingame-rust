@@ -1,3 +1,5 @@
+pub mod simulator;
+
 #[macro_export]
 macro_rules! assert_vec_eq {
     ($v1:expr, $v2:expr) => {

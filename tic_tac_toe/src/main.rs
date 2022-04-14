@@ -1,9 +1,16 @@
 mod game_tic_tac_toe;
+mod player;
+use common::simulator;
+use std::thread;
 
 fn main() {
-    /*
-    let game = TicTacToeGame::new();
-    println!("{:?}", game);
-    println!("{:?}", game.turn())
-    */
+    pub fn testfn(function: (impl Fn() + Send + Sync + 'static)) {
+        thread::spawn(move || function());
+    }
+
+    fn ftest() {
+        println!("Hello");
+    }
+
+    testfn(ftest);
 }
