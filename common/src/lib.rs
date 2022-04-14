@@ -10,11 +10,13 @@ macro_rules! assert_vec_eq {
 }
 
 pub struct Message {
-    pub player_id: u8,
-    pub message: Vec<String>,
+    pub player_id: usize,
+    pub messages: Vec<String>,
 }
 
 pub trait Game {
+    fn new() -> Self;
+
     fn turn(&self) -> Option<Message>;
 
     fn play(&mut self, msg: String);

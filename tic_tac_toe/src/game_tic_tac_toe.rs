@@ -29,21 +29,6 @@ struct TicTacToeGame {
 }
 
 impl TicTacToeGame {
-    fn new() -> TicTacToeGame {
-        TicTacToeGame {
-            p_boards: [[0b000_000_000; 9]; 2],
-            p_squares: [0b000_000_000; 2],
-            locked_squares: 0b000_000_000,
-
-            active: true,
-            active_player: 0,
-            turn: 0,
-
-            last_move: None,
-            winners: None,
-        }
-    }
-
     fn valid_moves(
         p_boards: &[[u16; 9]; 2],
         locked_squares: u16,
@@ -146,6 +131,21 @@ impl TicTacToeGame {
 }
 
 impl Game for TicTacToeGame {
+    fn new() -> TicTacToeGame {
+        TicTacToeGame {
+            p_boards: [[0b000_000_000; 9]; 2],
+            p_squares: [0b000_000_000; 2],
+            locked_squares: 0b000_000_000,
+
+            active: true,
+            active_player: 0,
+            turn: 0,
+
+            last_move: None,
+            winners: None,
+        }
+    }
+
     fn turn(&self) -> Option<Message> {
         // If game is over, return None
         if self.active == false {
@@ -172,8 +172,8 @@ impl Game for TicTacToeGame {
         }
 
         Some(Message {
-            player_id: self.active_player,
-            message: out,
+            player_id: self.active_player as usize,
+            messages: out,
         })
     }
 
