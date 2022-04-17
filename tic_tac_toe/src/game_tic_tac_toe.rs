@@ -244,6 +244,7 @@ impl Game for TicTacToeGame {
         }
 
         self.last_move = Some((row, col));
+        self.turn += 1;
     }
 
     fn winners(&self) -> Option<Vec<bool>> {
@@ -255,9 +256,9 @@ impl Game for TicTacToeGame {
 }
 
 #[cfg(test)]
-use common::assert_vec_eq;
 mod tests {
     use super::*;
+    use common::assert_vec_eq;
 
     #[test]
     fn test_cell99_to_cell33() {

@@ -83,35 +83,10 @@ pub fn run<N, G>(
     N: Fn() -> G,
     G: Game,
 {
-    for i in 0..nb_runs {
+    for _i in 0..nb_runs {
         let mut game = game_constr();
         run_single(&mut game, players);
 
         println!("Winner : {:?}", game.winners());
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    /*    #[test]
-    fn test_simulator() {
-        fn hello(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
-            while ctr_rcv.recv().unwrap() == true {
-                let msg_from_simulator = msg_rcv.recv().unwrap();
-                println!(
-                    "[Player] Received message from Simulator: <{}>",
-                    msg_from_simulator
-                );
-
-                println!("[Player] Sending message to Simulator");
-                msg_snd
-                    .send(format!("Message from Player : Hello Simulator"))
-                    .unwrap();
-            }
-        }
-        let players = vec![hello, hello];
-        run(&players, 3);
-    }
-    */
 }

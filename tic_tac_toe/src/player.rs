@@ -1,5 +1,4 @@
 use rand::seq::SliceRandom;
-use std::io;
 use std::sync::mpsc::{Receiver, Sender};
 
 macro_rules! parse_input {
