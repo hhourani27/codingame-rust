@@ -73,15 +73,21 @@ pub fn run_single(
     }
 }
 
-fn run<G: Game>(
+pub fn run<N, G>(
+    game_constr: N,
     players: &Vec<
         impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Sync + Copy + 'static,
     >,
     nb_runs: u32,
-) {
+) where
+    N: Fn() -> G,
+    G: Game,
+{
     for i in 0..nb_runs {
-        let mut game = G::new();
+        let mut game = game_constr();
         run_single(&mut game, players);
+
+        println!("Winner : {:?}", game.winners());
     }
 }
 

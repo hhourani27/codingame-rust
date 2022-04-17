@@ -1,16 +1,10 @@
 mod game_tic_tac_toe;
+use game_tic_tac_toe::TicTacToeGame;
 mod player;
 use common::simulator;
-use std::thread;
+use common::Game;
 
 fn main() {
-    pub fn testfn(function: (impl Fn() + Send + Sync + 'static)) {
-        thread::spawn(move || function());
-    }
-
-    fn ftest() {
-        println!("Hello");
-    }
-
-    testfn(ftest);
+    let players = vec![player::play, player::play];
+    simulator::run(TicTacToeGame::new, &players, 10);
 }

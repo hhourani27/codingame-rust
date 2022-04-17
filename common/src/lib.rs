@@ -20,4 +20,6 @@ pub trait Game {
     fn turn(&self) -> Option<Message>;
 
     fn play(&mut self, msg: String);
+
+    fn winners(&self) -> Option<Vec<bool>>;
 }

@@ -8,7 +8,7 @@ macro_rules! parse_input {
 }
 
 #[derive(Debug)]
-struct TicTacToeGame {
+pub struct TicTacToeGame {
     /*
     2D array
     [pid] => [u16,u16,u16,u16,u16,u16,u16,u16,u16] (9 squares)
@@ -131,7 +131,7 @@ impl TicTacToeGame {
 }
 
 impl Game for TicTacToeGame {
-    fn new() -> TicTacToeGame {
+    fn new() -> Self {
         TicTacToeGame {
             p_boards: [[0b000_000_000; 9]; 2],
             p_squares: [0b000_000_000; 2],
@@ -244,6 +244,13 @@ impl Game for TicTacToeGame {
         }
 
         self.last_move = Some((row, col));
+    }
+
+    fn winners(&self) -> Option<Vec<bool>> {
+        match self.winners {
+            Some(w) => Some(vec![w.0, w.1]),
+            None => None,
+        }
     }
 }
 
