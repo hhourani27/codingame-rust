@@ -1,14 +1,19 @@
+use crate::record;
 use crate::{Game, Message};
+use std::fs::File;
+use std::io::Error;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
 
-pub fn run_single(
+fn run_single(
     game: &mut impl Game,
     players: &Vec<
         impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Sync + Copy + 'static,
     >,
-) {
+    game_id: u32,
+    record_game: bool,
+) -> Option<record::GameRun> {
     let player_count = players.len();
     // Vector of thread handles
     let mut p_threads: Vec<JoinHandle<()>> = Vec::new();
@@ -39,7 +44,17 @@ pub fn run_single(
         p_threads.push(th);
     }
 
+    // [RECORD] Create the game run record and fill it if record_game is True
+    let mut game_run_record = record::GameRun {
+        run_id: game_id,
+        total_turns: 0,
+        turns: Vec::new(),
+        winners: Vec::new(),
+    };
+    /////////// [END RECORD]
+
     // Start the game
+    let mut turn: u32 = 0;
     loop {
         let game_message = game.turn();
         match game_message {
@@ -52,13 +67,26 @@ pub fn run_single(
             }) => {
                 sp_control_senders[player_id].send(true).unwrap();
 
-                println!("Game:");
                 for msg in messages.iter() {
-                    println!("\t{}", msg);
                     sp_message_senders[player_id].send(msg.to_string()).unwrap();
                 }
                 let msg = ps_message_receivers[player_id].recv().unwrap();
-                println!("Player {}: {}", player_id, msg);
+
+                // [RECORD] Record game before playing the move
+                if record_game {
+                    let game_turn_record = record::GameTurn {
+                        turn,
+                        game_state: game.get_state(),
+                        player: player_id as u32,
+                        player_input: messages.clone(),
+                        player_move: msg.clone(),
+                    };
+
+                    game_run_record.turns.push(game_turn_record);
+                }
+                /////////// [END RECORD]
+
+                turn += 1;
                 game.play(msg);
             }
         }
@@ -69,9 +97,22 @@ pub fn run_single(
         ctrl.send(false).unwrap();
     }
 
+    // [RECORD] Record final result of game
+    if record_game {
+        game_run_record.total_turns = turn;
+        game_run_record.winners = game.winners().unwrap();
+    }
+    /////////// [END RECORD]
+
     // Wait for the threads to finish
     for th in p_threads {
         let _ = th.join();
+    }
+
+    // Return Record or None
+    match record_game {
+        false => None,
+        true => Some(game_run_record),
     }
 }
 
@@ -81,14 +122,38 @@ pub fn run<N, G>(
         impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Sync + Copy + 'static,
     >,
     nb_runs: u32,
-) where
+    record_path: Option<String>,
+) -> Result<(), Error>
+where
     N: Fn() -> G,
     G: Game,
 {
-    for _i in 0..nb_runs {
-        let mut game = game_constr();
-        run_single(&mut game, players);
+    // [RECORD] Create Record
+    let record_game = record_path.is_some();
+    let mut record = record::Record {
+        board_representation: G::get_board_representation(),
+        game_runs: Vec::new(),
+    };
+    /////////// [END RECORD]
 
-        println!("Winner : {:?}", game.winners());
+    for i in 0..nb_runs {
+        let mut game = game_constr();
+        let run_record = run_single(&mut game, players, i, record_game);
+
+        // [RECORD] After run is over, record run
+        if record_game == true {
+            record.game_runs.push(run_record.unwrap());
+        }
+        /////////// [END RECORD]
     }
+    // [RECORD] After run is over, record run
+    if record_game {
+        let record_file = format!("{}/record.json", record_path.unwrap());
+
+        let mut _file = File::create(record_file)?;
+        serde_json::to_writer(_file, &record)?;
+    }
+
+    Ok(())
+    /////////// [END RECORD]
 }

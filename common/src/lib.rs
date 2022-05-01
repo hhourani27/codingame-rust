@@ -23,4 +23,54 @@ pub trait Game {
     fn play(&mut self, msg: String);
 
     fn winners(&self) -> Option<Vec<bool>>;
+
+    fn get_state(&self) -> record::GameState;
+
+    fn get_board_representation() -> record::BoardRepresentation;
+}
+
+pub mod record {
+    use serde::Serialize;
+    use std::collections::HashMap;
+
+    #[derive(Serialize)]
+    pub struct Record {
+        pub board_representation: BoardRepresentation,
+        pub game_runs: Vec<GameRun>,
+    }
+
+    #[derive(Serialize)]
+    pub struct BoardRepresentation {
+        pub classes: Vec<HashMap<char, CellClass>>,
+    }
+
+    #[derive(Serialize)]
+    pub struct CellClass {
+        pub text: Option<String>,
+        pub text_style: Option<String>,
+        pub cell_style: Option<String>,
+    }
+
+    #[derive(Serialize)]
+    pub struct GameRun {
+        pub run_id: u32,
+        pub total_turns: u32,
+        pub turns: Vec<GameTurn>,
+        pub winners: Vec<bool>,
+    }
+
+    #[derive(Serialize)]
+    pub struct GameTurn {
+        pub turn: u32,
+        pub game_state: GameState,
+        pub player: u32,
+        pub player_input: Vec<String>,
+        pub player_move: String,
+    }
+
+    #[derive(Serialize)]
+    pub struct GameState {
+        pub board: Vec<Vec<String>>,
+        pub state: HashMap<&'static str, String>,
+    }
 }

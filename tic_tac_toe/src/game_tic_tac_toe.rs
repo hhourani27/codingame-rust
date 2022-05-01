@@ -1,5 +1,7 @@
+use common::record;
 use common::{Game, Message};
 use itertools::iproduct;
+use std::collections::HashMap;
 use std::fmt;
 
 macro_rules! parse_input {
@@ -18,12 +20,18 @@ enum MoveResult {
     InvalidMove,
 }
 
+impl fmt::Display for MoveResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Debug)]
 pub struct TicTacToeGame {
     /*
     2D array
     [pid] => [u16,u16,u16,u16,u16,u16,u16,u16,u16] (9 squares)
-        Each u16 correspond to a bit representation of a square.
+        Each u16 correspond to a 9-bit representation of a square.
     */
     p_boards: [[u16; 9]; 2],
     // A 2D array : [player_id] => 8-bit number representing which squares are won by a player
@@ -248,7 +256,6 @@ impl Game for TicTacToeGame {
 
             // Update the locked square status
             self.locked_squares = TicTacToeGame::set_bit(self.locked_squares, square.0, square.1);
-            println!("{}", &self);
         }
         // (3.3) If the player didn't win the square, check if it's filled
         else if self.p_boards[0][sq_idx] | self.p_boards[1][sq_idx] == 0b111_111_111 {
@@ -294,6 +301,153 @@ impl Game for TicTacToeGame {
             Some(w) => Some(vec![w.0, w.1]),
             None => None,
         }
+    }
+
+    fn get_state(&self) -> record::GameState {
+        // Create Record Board
+        let mut board: Vec<Vec<String>> = Vec::new();
+        for r in 0..9 {
+            let mut row: Vec<String> = Vec::new();
+            for c in 0..9 {
+                let mut cell_state = String::new();
+
+                // (1) Check if cell is occupied
+                let square = TicTacToeGame::square_of_cell((r, c));
+                let square_idx: usize = (square.0 * 3 + square.1) as usize;
+                let cell33 = TicTacToeGame::cell99_to_cell33((r, c));
+
+                if TicTacToeGame::get_bit(self.p_boards[0][square_idx], cell33.0, cell33.1) == 1 {
+                    cell_state.push('❌');
+                } else if TicTacToeGame::get_bit(self.p_boards[1][square_idx], cell33.0, cell33.1)
+                    == 1
+                {
+                    cell_state.push('⭕');
+                } else {
+                    cell_state.push('.');
+                }
+
+                // (2) Check if square is occupied
+                if TicTacToeGame::get_bit(self.p_squares[0], square.0, square.1) == 1 {
+                    cell_state.push('❌');
+                } else if TicTacToeGame::get_bit(self.p_squares[1], square.0, square.1) == 1 {
+                    cell_state.push('⭕');
+                } else if TicTacToeGame::get_bit(self.locked_squares, square.0, square.1) == 1 {
+                    cell_state.push('🔒');
+                } else {
+                    cell_state.push('.');
+                }
+
+                row.push(cell_state);
+            }
+            board.push(row);
+        }
+
+        // Record other state variables
+        let mut state: HashMap<&str, String> = HashMap::new();
+        state.insert("turn", self.turn.to_string());
+        state.insert("active", self.active.to_string());
+        state.insert("active_player", self.active_player.to_string());
+        state.insert(
+            "last_move",
+            match self.last_move {
+                None => String::from("None"),
+                Some((r, c)) => format!("({},{})", r.to_string(), c.to_string()),
+            },
+        );
+        state.insert(
+            "last_move_result",
+            match &self.last_move_result {
+                None => String::from("None"),
+                Some(mr) => mr.to_string(),
+            },
+        );
+        state.insert(
+            "p_boards",
+            format!(
+                "[{}]",
+                self.p_squares.map(|v| format!("{:0>9b}", v)).join(",")
+            ),
+        );
+
+        state.insert("locked_squares", format!("{:0>9b}", self.locked_squares));
+
+        record::GameState { board, state }
+    }
+
+    fn get_board_representation() -> record::BoardRepresentation {
+        let mut classes: Vec<HashMap<char, record::CellClass>> = Vec::new();
+
+        // First position
+        let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
+
+        class_styles.insert(
+            '❌',
+            record::CellClass {
+                text: Some('❌'.to_string()),
+                text_style: Some("color: transparent; text-shadow: 0 0 0 #F2B213;".to_string()),
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '⭕',
+            record::CellClass {
+                text: Some('⭕'.to_string()),
+                text_style: Some("color: transparent; text-shadow: 0 0 0 #22A1E4;".to_string()),
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '.',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: None,
+            },
+        );
+
+        classes.push(class_styles);
+
+        // Second position
+        let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
+
+        class_styles.insert(
+            '❌',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some("background-color: #fcf0d0;".to_string()),
+            },
+        );
+
+        class_styles.insert(
+            '⭕',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some("background-color: #d3ecfa;".to_string()),
+            },
+        );
+
+        class_styles.insert(
+            '🔒',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some("background-color: #e6e6e6;".to_string()),
+            },
+        );
+        class_styles.insert(
+            '.',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: None,
+            },
+        );
+
+        classes.push(class_styles);
+
+        record::BoardRepresentation { classes }
     }
 }
 
