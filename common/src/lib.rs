@@ -9,6 +9,7 @@ macro_rules! assert_vec_eq {
     };
 }
 
+#[derive(Debug)]
 pub struct Message {
     pub player_id: usize,
     pub messages: Vec<String>,

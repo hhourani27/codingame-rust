@@ -1,10 +1,21 @@
 use common::{Game, Message};
 use itertools::iproduct;
+use std::fmt;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
         $x.trim().parse::<$t>().unwrap()
     };
+}
+
+#[derive(Debug, PartialEq)]
+enum MoveResult {
+    NormalMove,
+    MoveWinningSquare,
+    MoveFillingSquareWithoutWinningIt,
+    MoveWinningBoard,
+    MoveFillingBoardWithoutWinning,
+    InvalidMove,
 }
 
 #[derive(Debug)]
@@ -25,7 +36,24 @@ pub struct TicTacToeGame {
     turn: u8,
 
     last_move: Option<(u8, u8)>,
+    last_move_result: Option<MoveResult>,
     winners: Option<(bool, bool)>,
+}
+impl fmt::Display for TicTacToeGame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = String::from("Game:\n");
+        out.push_str("\tp_boards: [\n");
+        for p in 0..2 {
+            out.push_str("\t\t[");
+            for i in 0..9 {
+                out.push_str(&format!("{:#9b},", self.p_boards[p][i]));
+            }
+            out.push_str("[");
+        }
+        out.push_str("\t]\n");
+
+        write!(f, "{}", out)
+    }
 }
 
 impl TicTacToeGame {
@@ -142,6 +170,7 @@ impl Game for TicTacToeGame {
             turn: 0,
 
             last_move: None,
+            last_move_result: None,
             winners: None,
         }
     }
@@ -189,14 +218,18 @@ impl Game for TicTacToeGame {
         if !TicTacToeGame::valid_moves(&self.p_boards, self.locked_squares, self.last_move)
             .contains(&(row, col))
         {
+            self.last_move_result = Some(MoveResult::InvalidMove);
             self.active = false;
             self.winners = if pid == 0 {
                 Some((false, true))
             } else {
                 Some((true, false))
-            }
+            };
+
+            return;
         }
 
+        self.last_move_result = Some(MoveResult::NormalMove);
         // (3) Perform move and update game state
         //  (3.1) Place move on board
         let square = TicTacToeGame::square_of_cell((row, col));
@@ -208,20 +241,24 @@ impl Game for TicTacToeGame {
         //  (3.2) Check if the player won the square
         let p_square = self.p_boards[pid as usize][sq_idx];
         if TicTacToeGame::is_won(p_square) {
+            self.last_move_result = Some(MoveResult::MoveWinningSquare);
             // Update the player's square status
             self.p_squares[pid as usize] =
                 TicTacToeGame::set_bit(self.p_squares[pid as usize], square.0, square.1);
 
             // Update the locked square status
             self.locked_squares = TicTacToeGame::set_bit(self.locked_squares, square.0, square.1);
+            println!("{}", &self);
         }
         // (3.3) If the player didn't win the square, check if it's filled
         else if self.p_boards[0][sq_idx] | self.p_boards[1][sq_idx] == 0b111_111_111 {
+            self.last_move_result = Some(MoveResult::MoveFillingSquareWithoutWinningIt);
             self.locked_squares = TicTacToeGame::set_bit(self.locked_squares, square.0, square.1);
         }
 
         // (4) Check if it's a winning move or a tie
         if TicTacToeGame::is_won(self.p_squares[pid as usize]) {
+            self.last_move_result = Some(MoveResult::MoveWinningBoard);
             self.active = false;
             self.winners = if pid == 0 {
                 Some((true, false))
@@ -229,6 +266,7 @@ impl Game for TicTacToeGame {
                 Some((false, true))
             }
         } else if self.locked_squares == 0b111_111_111 {
+            self.last_move_result = Some(MoveResult::MoveFillingBoardWithoutWinning);
             self.active = false;
             let won_squares = [
                 self.p_squares[0].count_ones(),
@@ -243,8 +281,12 @@ impl Game for TicTacToeGame {
             }
         }
 
-        self.last_move = Some((row, col));
         self.turn += 1;
+        self.last_move = Some((row, col));
+
+        if self.active == true {
+            self.active_player = (self.active_player + 1) % 2;
+        }
     }
 
     fn winners(&self) -> Option<Vec<bool>> {
@@ -343,6 +385,12 @@ mod tests {
         assert_eq!(TicTacToeGame::set_bit(0b110_111_011, 0, 2), 0b111_111_011);
         assert_eq!(TicTacToeGame::set_bit(0b011_110_000, 1, 2), 0b011_111_000);
         assert_eq!(TicTacToeGame::set_bit(0b100_000_011, 2, 0), 0b100_000_111);
+    }
+
+    #[test]
+    fn test_is_won() {
+        assert_eq!(TicTacToeGame::is_won(0b111000000), true);
+        assert_eq!(TicTacToeGame::is_won(0b110000000), false);
     }
 
     #[test]
@@ -792,5 +840,123 @@ mod tests {
         let expected_moves: Vec<(u8, u8)> = vec![(2, 8), (0, 6), (0, 7), (2, 7)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
         assert_vec_eq!(expected_moves, valid_moves);
+    }
+
+    #[test]
+    fn test_game_valid_moves_when_square_is_locked() {
+        let game = TicTacToeGame {
+            p_boards: [
+                [
+                    0b100_000_000,
+                    0b100_000_000,
+                    0,
+                    0,
+                    0b100_000_000,
+                    0,
+                    0,
+                    0b100_000_000,
+                    0,
+                ],
+                [0b010_010_010, 0, 0, 0, 0, 0, 0, 0, 0],
+            ],
+            p_squares: [0, 0b100_000_000],
+            locked_squares: 0b100_000_000,
+            active: true,
+            active_player: 1,
+            turn: 7,
+            last_move: Some((6, 3)),
+            last_move_result: Some(MoveResult::NormalMove),
+            winners: None,
+        };
+
+        let msg = game.turn().unwrap();
+        assert_eq!(msg.messages[1], "69");
+        assert_eq!(game.last_move_result, Some(MoveResult::NormalMove));
+    }
+
+    #[test]
+    fn test_game_lock_square_when_it_is_won() {
+        let mut game = TicTacToeGame::new();
+        game.play(String::from("0 0")); // Player 0
+        game.play(String::from("0 1")); // Player 1
+        game.play(String::from("0 3")); // Player 0
+        game.play(String::from("1 1")); // Player 1
+        game.play(String::from("3 3")); // Player 0
+        assert_eq!(game.locked_squares, 0b000_000_000);
+
+        game.play(String::from("2 1")); // Player 1
+
+        assert_eq!(game.p_squares, [0, 0b100_000_000]);
+        assert_eq!(game.locked_squares, 0b100_000_000);
+
+        game.play(String::from("6 3")); // Player 0
+        let msg = game.turn().unwrap();
+        assert_eq!(msg.messages[1], "69");
+    }
+
+    fn test_game_1() {
+        let mut game = TicTacToeGame::new();
+        game.play(String::from("1 8")); // Player 0
+        game.play(String::from("4 7")); // Player 1
+        game.play(String::from("3 5")); // Player 0
+        game.play(String::from("1 6")); // Player 1
+        game.play(String::from("5 1")); // Player 0
+        game.play(String::from("7 4")); // Player 1
+        game.play(String::from("5 5")); // Player 0
+        game.play(String::from("7 6")); // Player 1
+        game.play(String::from("3 2")); // Player 0
+        game.play(String::from("2 8")); // Player 1
+        game.play(String::from("8 7")); // Player 0
+        game.play(String::from("8 5")); // Player 1
+        game.play(String::from("7 8")); // Player 0
+        game.play(String::from("5 8")); // Player 1
+        game.play(String::from("6 8")); // Player 0
+        game.play(String::from("2 7")); // Player 1
+        game.play(String::from("6 4")); // Player 0
+        game.play(String::from("1 5")); // Player 1
+        game.play(String::from("4 6")); // Player 0
+        game.play(String::from("5 2")); // Player 1
+        game.play(String::from("6 6")); // Player 0
+        game.play(String::from("2 2")); // Player 1
+        game.play(String::from("6 7")); // Player 0
+        game.play(String::from("2 3")); // Player 1
+        game.play(String::from("7 0")); // Player 0
+        game.play(String::from("4 0")); // Player 1
+        game.play(String::from("5 0")); // Player 0
+        game.play(String::from("6 2")); // Player 1
+        game.play(String::from("0 7")); // Player 0
+        game.play(String::from("1 3")); // Player 1
+        game.play(String::from("3 0")); // Player 0
+        game.play(String::from("1 0")); // Player 1
+        game.play(String::from("4 2")); // Player 0
+        game.play(String::from("3 7")); // Player 1
+        game.play(String::from("2 4")); // Player 0
+        game.play(String::from("8 3")); // Player 1
+        game.play(String::from("7 2")); // Player 0
+        game.play(String::from("5 7")); // Player 1
+        game.play(String::from("7 3")); // Player 0
+        game.play(String::from("3 1")); // Player 1
+        game.play(String::from("0 5")); // Player 0
+        game.play(String::from("2 6")); // Player 1
+        game.play(String::from("8 1")); // Player 0
+        game.play(String::from("6 5")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
+        game.play(String::from("")); // Player 0
+        game.play(String::from("")); // Player 1
     }
 }

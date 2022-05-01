@@ -52,11 +52,13 @@ pub fn run_single(
             }) => {
                 sp_control_senders[player_id].send(true).unwrap();
 
+                println!("Game:");
                 for msg in messages.iter() {
+                    println!("\t{}", msg);
                     sp_message_senders[player_id].send(msg.to_string()).unwrap();
                 }
-
                 let msg = ps_message_receivers[player_id].recv().unwrap();
+                println!("Player {}: {}", player_id, msg);
                 game.play(msg);
             }
         }
