@@ -78,6 +78,10 @@
     }
 
     function printState(game_state, div, repr) {
+      //Print Board
+      div_board = div.getElementsByClassName("board")[0];
+      printBoard(game_state["board"], div_board, repr);
+
       //Print State
       div_state = div.getElementsByClassName("state")[0];
       div_state.innerHTML = "";
@@ -95,6 +99,63 @@
     }
 
     function printBoard(board, div, repr) {
+      div.innerHTML = "";
+      let table = document.createElement("table");
+      div.append(table);
+
+      row_nb = repr["rows"];
+      col_nb = repr["cols"];
+
+      // Add number columns
+      tr = document.createElement("tr");
+      table.append(tr);
+
+      th = document.createElement("th");
+      tr.append(th);
+      for (let c = 0; c < col_nb; c++) {
+        th = document.createElement("th");
+        th.textContent = c;
+        tr.append(th);
+      }
+
+      // Print table row by row
+      for (let r = 0; r < row_nb; r++) {
+        tr = document.createElement("tr");
+        table.append(tr);
+
+        // Add number row
+        th = document.createElement("th");
+        th.textContent = r;
+        tr.append(th);
+
+        for (let c = 0; c < col_nb; c++) {
+          cell = Array.from(board[r][c]);
+          td = document.createElement("td");
+          for (let i = 0; i < cell.length; i++) {
+            cell_c = cell[i];
+            style = repr["classes"][i][cell_c];
+
+            if (style["text"]) {
+              td.textContent += style["text"];
+            }
+            if (style["text_style"]) {
+              for (const k in style["text_style"]) {
+                td.style[k] = style["text_style"][k];
+              }
+            }
+            if (style["cell_style"]) {
+              for (const k in style["cell_style"]) {
+                td.style[k] = style["cell_style"][k];
+              }
+            }
+
+          }
+
+          tr.append(td);
+        }
+
+
+      }
 
     }
 

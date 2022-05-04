@@ -384,7 +384,12 @@ impl Game for TicTacToeGame {
             '❌',
             record::CellClass {
                 text: Some('❌'.to_string()),
-                text_style: Some("color: transparent; text-shadow: 0 0 0 #F2B213;".to_string()),
+                text_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("color".to_string(), "transparent".to_string());
+                    css.insert("textShadow".to_string(), "0 0 0 #F2B213".to_string());
+                    css
+                }),
                 cell_style: None,
             },
         );
@@ -392,7 +397,12 @@ impl Game for TicTacToeGame {
             '⭕',
             record::CellClass {
                 text: Some('⭕'.to_string()),
-                text_style: Some("color: transparent; text-shadow: 0 0 0 #22A1E4;".to_string()),
+                text_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("color".to_string(), "transparent".to_string());
+                    css.insert("textShadow".to_string(), "0 0 0 #22A1E4".to_string());
+                    css
+                }),
                 cell_style: None,
             },
         );
@@ -415,7 +425,11 @@ impl Game for TicTacToeGame {
             record::CellClass {
                 text: None,
                 text_style: None,
-                cell_style: Some("background-color: #fcf0d0;".to_string()),
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("backgroundColor".to_string(), "#fcf0d0".to_string());
+                    css
+                }),
             },
         );
 
@@ -424,7 +438,11 @@ impl Game for TicTacToeGame {
             record::CellClass {
                 text: None,
                 text_style: None,
-                cell_style: Some("background-color: #d3ecfa;".to_string()),
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("backgroundColor".to_string(), "#d3ecfa".to_string());
+                    css
+                }),
             },
         );
 
@@ -433,7 +451,11 @@ impl Game for TicTacToeGame {
             record::CellClass {
                 text: None,
                 text_style: None,
-                cell_style: Some("background-color: #e6e6e6;".to_string()),
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("backgroundColor".to_string(), "#e6e6e6".to_string());
+                    css
+                }),
             },
         );
         class_styles.insert(
@@ -447,7 +469,11 @@ impl Game for TicTacToeGame {
 
         classes.push(class_styles);
 
-        record::BoardRepresentation { classes }
+        record::BoardRepresentation {
+            rows: 9,
+            cols: 9,
+            classes,
+        }
     }
 }
 

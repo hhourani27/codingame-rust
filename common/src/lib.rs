@@ -41,14 +41,16 @@ pub mod record {
 
     #[derive(Serialize)]
     pub struct BoardRepresentation {
+        pub rows: u32,
+        pub cols: u32,
         pub classes: Vec<HashMap<char, CellClass>>,
     }
 
     #[derive(Serialize)]
     pub struct CellClass {
         pub text: Option<String>,
-        pub text_style: Option<String>,
-        pub cell_style: Option<String>,
+        pub text_style: Option<HashMap<String, String>>,
+        pub cell_style: Option<HashMap<String, String>>,
     }
 
     #[derive(Serialize)]
