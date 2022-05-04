@@ -6,10 +6,16 @@
 #messages {
   float: left;
   width: 25%;
+  overflow: hidden;
 }
 
 .turns:after {
   content: "";
   display: table;
   clear: both;
+}
+
+#player-input {
+  max-height: 300px;
+  overflow-y: scroll;
 }
