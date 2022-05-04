@@ -25,17 +25,13 @@
     </ul>
   </div>
   <div id="turns">
-    <div id="state-before" class="game-state">
+    <div id="game-state" class="game-state">
       <div class="board">board</div>
       <div class="state">state</div>
     </div>
     <div id="messages">
       <div id="player-input">player-input</div>
       <div id="player-output">player-output</div>
-    </div>
-    <div id="state-after" class="game-state">
-      <div class="board">board</div>
-      <div class="state">state</div>
     </div>
   </div>
 
@@ -69,12 +65,13 @@
     }
 
     function printTurn() {
-      turn = record['game_runs'][run_id]['turns'][turn_id];
+      let turn = record['game_runs'][run_id]['turns'][turn_id];
       document.getElementById("turn").innerHTML = `Turn: ${turn_id} (of ${record['game_runs'][run_id]['turns'].length - 1})`;
 
       // Print State & Board
-      printState(turn["game_state"], document.getElementById("state-before"), record["board_representation"]);
+      printState(turn["game_state"], document.getElementById("game-state"), record["board_representation"]);
       printMessages(turn);
+
     }
 
     function printState(game_state, div, repr) {

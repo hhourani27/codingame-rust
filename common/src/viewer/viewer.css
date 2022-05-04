@@ -1,11 +1,11 @@
-.game-state {
+#game-state {
   float: left;
-  width: 35%;
+  width: 50%;
 }
 
 #messages {
   float: left;
-  width: 28%;
+  width: 25%;
 }
 
 .turns:after {

@@ -362,7 +362,7 @@ impl Game for TicTacToeGame {
             },
         );
         state.insert(
-            "p_boards",
+            "p_squares",
             format!(
                 "[{}]",
                 self.p_squares.map(|v| format!("{:0>9b}", v)).join(",")
