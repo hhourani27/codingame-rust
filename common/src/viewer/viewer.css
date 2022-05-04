@@ -1,0 +1,24 @@
+div {
+  border: solid black;
+}
+
+#board-before {
+  float: left;
+  width: 35%;
+}
+
+#messages {
+  float: left;
+  width: 28%;
+}
+
+#board-after {
+  float: left;
+  width: 35%;
+}
+
+.turns:after {
+  content: "";
+  display: table;
+  clear: both;
+}

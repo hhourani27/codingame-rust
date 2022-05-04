@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="viewer.css">
+  <title></title>
+
+</head>
+
+<body>
+  <div id="upload">
+    <form id="upload-form">
+      <label for="file">File to upload</label>
+      <input type="file" id="file" accept=".json">
+      <button>Upload</button>
+    </form>
+
+  </div>
+  <div id="run-info">
+    <ul>
+      <li id="run-id">Run ID :</li>
+      <li id="winners">Winners : </li>
+      <li id="turn">Turn :</li>
+    </ul>
+  </div>
+  <div id="turns">
+    <div id="board-before">board</div>
+    <div id="messages">
+      <div id="player-input">player-input</div>
+      <div id="player-output">player-output</div>
+    </div>
+    <div id="board-after">board-after</div>
+  </div>
+
+
+  <script type="text/javascript">
+
+    let file = document.querySelector('#file');
+
+    // State
+    let record = null;
+    let run_id = -1;
+    let turn_id = -1;
+
+
+    function readRecord(event) {
+      let str = event.target.result;
+      record = JSON.parse(str);
+      run_id = 0;
+
+      printRun();
+
+      console.log('json', record);
+    }
+
+    function printRun() {
+      game_run = record['game_runs'][run_id];
+      document.getElementById("run-id").innerHTML = `Run ID : ${game_run["run_id"]} (${run_id} of ${record["game_runs"].length - 1})`;
+      document.getElementById("winners").innerHTML = "Winners : " + game_run["winners"].map((w, p) => `Player ${p} ${w ? '✅' : '❌'} `).join('\t');
+
+      turn_id = 0
+      printTurn();
+    }
+
+    function printTurn() {
+      turn = record['game_runs'][run_id]['turns'][turn_id];
+      document.getElementById("turn").innerHTML = `Turn: ${turn_id} (of ${record['game_runs'][run_id]['turns'].length - 1})`;
+    }
+
+
+    function handleSubmit(event) {
+
+      // Stop the form from reloading the page
+      event.preventDefault();
+
+      // If there's no file, do nothing
+      if (!file.value.length) return;
+
+      // Create a new FileReader() object
+      let reader = new FileReader();
+
+      // Setup the callback event to run when the file is read
+      reader.onload = readRecord;
+
+      // Read the file
+      reader.readAsText(file.files[0]);
+
+    }
+
+    function keyPress() {
+      let windowEvent = window.event ? event : e;
+
+      if (record) {
+        // Left arrow 
+        if (windowEvent.keyCode == 37) {
+          if (turn_id > 0) {
+            turn_id -= 1;
+            printTurn();
+          }
+        }
+        // Right arrow 
+        else if (windowEvent.keyCode == 39) {
+          if (turn_id < record['game_runs'][run_id]['turns'].length - 1) {
+            turn_id += 1;
+            printTurn();
+          }
+        }
+        // Up arrow 
+        else if (windowEvent.keyCode == 38) {
+          if (run_id < record['game_runs'].length - 1) {
+            run_id += 1;
+            printRun();
+          }
+        }
+        // Down arrow 
+        else if (windowEvent.keyCode == 40) {
+          if (run_id > 0) {
+            run_id -= 1;
+            printRun();
+          }
+        }
+      }
+
+    }
+
+    document.getElementById("upload-form").addEventListener('submit', handleSubmit);
+    document.onkeydown = keyPress;
+
+  </script>
+
+</body>
+
+</html>
