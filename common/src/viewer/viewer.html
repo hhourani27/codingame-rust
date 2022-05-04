@@ -213,6 +213,7 @@
       if (record) {
         // Left arrow 
         if (windowEvent.keyCode == 37) {
+          windowEvent.preventDefault();
           if (turn_id > 0) {
             turn_id -= 1;
             printTurn();
@@ -220,6 +221,7 @@
         }
         // Right arrow 
         else if (windowEvent.keyCode == 39) {
+          windowEvent.preventDefault();
           if (turn_id < record['game_runs'][run_id]['turns'].length - 1) {
             turn_id += 1;
             printTurn();
@@ -227,6 +229,7 @@
         }
         // Up arrow 
         else if (windowEvent.keyCode == 38) {
+          windowEvent.preventDefault();
           if (run_id < record['game_runs'].length - 1) {
             run_id += 1;
             printRun();
@@ -234,6 +237,7 @@
         }
         // Down arrow 
         else if (windowEvent.keyCode == 40) {
+          windowEvent.preventDefault();
           if (run_id > 0) {
             run_id -= 1;
             printRun();
