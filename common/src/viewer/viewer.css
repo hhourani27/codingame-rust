@@ -1,3 +1,18 @@
+div {
+  padding: 10px;
+}
+
+#upload {
+  border-bottom: solid black;
+  border-width: thin;
+}
+
+#run-info {
+  border-bottom: solid black;
+  border-width: thin;
+}
+
+
 #game-state {
   float: left;
   width: 50%;
@@ -7,6 +22,9 @@
   float: left;
   width: 25%;
   overflow: hidden;
+  border-left: solid black;
+  border-width: thin;
+
 }
 
 .turns:after {
@@ -16,6 +34,11 @@
 }
 
 #player-input {
+  height: 300px;
   max-height: 300px;
   overflow-y: scroll;
+}
+
+.state td {
+  vertical-align: top;
 }

@@ -58,6 +58,7 @@ pub mod record {
         pub run_id: u32,
         pub total_turns: u32,
         pub turns: Vec<GameTurn>,
+        pub final_state: GameState,
         pub winners: Vec<bool>,
     }
 
@@ -70,7 +71,7 @@ pub mod record {
         pub player_move: String,
     }
 
-    #[derive(Serialize)]
+    #[derive(Serialize, Default)]
     pub struct GameState {
         pub board: Vec<Vec<String>>,
         pub state: HashMap<&'static str, String>,

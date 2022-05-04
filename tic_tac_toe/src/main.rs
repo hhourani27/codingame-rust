@@ -5,6 +5,7 @@ use common::simulator;
 use common::Game;
 
 #[allow(unused_must_use)]
+
 fn main() {
     let players = vec![player::play, player::play];
 
@@ -13,7 +14,7 @@ fn main() {
     simulator::run(
         TicTacToeGame::new,
         &players,
-        10,
+        50,
         Some(record_path.to_string()),
     );
 }

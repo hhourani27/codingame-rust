@@ -65,12 +65,26 @@
     }
 
     function printTurn() {
-      let turn = record['game_runs'][run_id]['turns'][turn_id];
-      document.getElementById("turn").innerHTML = `Turn: ${turn_id} (of ${record['game_runs'][run_id]['turns'].length - 1})`;
+      if (turn_id < record['game_runs'][run_id]['turns'].length) {
+        let turn = record['game_runs'][run_id]['turns'][turn_id];
+        document.getElementById("turn").innerHTML = `Turn: ${turn_id} (of ${record['game_runs'][run_id]['turns'].length - 1})`;
 
-      // Print State & Board
-      printState(turn["game_state"], document.getElementById("game-state"), record["board_representation"]);
-      printMessages(turn);
+        // Print State & Board
+        printState(turn["game_state"], document.getElementById("game-state"), record["board_representation"]);
+        printMessages(turn);
+      }
+      else if (turn_id == record['game_runs'][run_id]['turns'].length) {
+        let final_state = record['game_runs'][run_id]["final_state"];
+        document.getElementById("turn").innerHTML = `Final state (of ${record['game_runs'][run_id]['turns'].length - 1})`;
+        // Print State & Board
+        printState(final_state, document.getElementById("game-state"), record["board_representation"]);
+
+        // Clean messages
+        let div_player_input = document.getElementById("player-input");
+        div_player_input.innerHTML = "";
+        let div_player_output = document.getElementById("player-output");
+        div_player_output.innerHTML = "";
+      }
 
     }
 
@@ -222,7 +236,7 @@
         // Right arrow 
         else if (windowEvent.keyCode == 39) {
           windowEvent.preventDefault();
-          if (turn_id < record['game_runs'][run_id]['turns'].length - 1) {
+          if (turn_id < record['game_runs'][run_id]['turns'].length) {
             turn_id += 1;
             printTurn();
           }

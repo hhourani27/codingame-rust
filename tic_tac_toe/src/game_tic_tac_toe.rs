@@ -162,7 +162,12 @@ impl TicTacToeGame {
             0b001010100,
         ];
 
-        winning_configurations.contains(&bit_9)
+        for wc in winning_configurations {
+            if bit_9 & wc == wc {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -243,6 +248,7 @@ impl Game for TicTacToeGame {
         let square = TicTacToeGame::square_of_cell((row, col));
         let (row33, col33) = TicTacToeGame::cell99_to_cell33((row, col));
         let sq_idx: usize = (square.0 * 3 + square.1) as usize;
+
         self.p_boards[pid as usize][sq_idx] =
             TicTacToeGame::set_bit(self.p_boards[pid as usize][sq_idx], row33, col33);
 
@@ -365,7 +371,23 @@ impl Game for TicTacToeGame {
             "p_squares",
             format!(
                 "[{}]",
-                self.p_squares.map(|v| format!("{:0>9b}", v)).join(",")
+                self.p_squares.map(|v| format!("{:0>9b}", v)).join(", ")
+            ),
+        );
+
+        state.insert(
+            "p_board[0]",
+            format!(
+                "[{}]",
+                self.p_boards[0].map(|v| format!("{:0>9b}", v)).join(", ")
+            ),
+        );
+
+        state.insert(
+            "p_board[1]",
+            format!(
+                "[{}]",
+                self.p_boards[1].map(|v| format!("{:0>9b}", v)).join(", ")
             ),
         );
 
@@ -453,7 +475,7 @@ impl Game for TicTacToeGame {
                 text_style: None,
                 cell_style: Some({
                     let mut css = HashMap::new();
-                    css.insert("backgroundColor".to_string(), "#e6e6e6".to_string());
+                    css.insert("backgroundColor".to_string(), "#adadad".to_string());
                     css
                 }),
             },
@@ -571,6 +593,7 @@ mod tests {
     fn test_is_won() {
         assert_eq!(TicTacToeGame::is_won(0b111000000), true);
         assert_eq!(TicTacToeGame::is_won(0b110000000), false);
+        assert_eq!(TicTacToeGame::is_won(0b111000001), true);
     }
 
     #[test]
@@ -1074,69 +1097,11 @@ mod tests {
         assert_eq!(msg.messages[1], "69");
     }
 
+    #[test]
     fn test_game_1() {
         let mut game = TicTacToeGame::new();
-        game.play(String::from("1 8")); // Player 0
-        game.play(String::from("4 7")); // Player 1
-        game.play(String::from("3 5")); // Player 0
-        game.play(String::from("1 6")); // Player 1
-        game.play(String::from("5 1")); // Player 0
-        game.play(String::from("7 4")); // Player 1
-        game.play(String::from("5 5")); // Player 0
-        game.play(String::from("7 6")); // Player 1
-        game.play(String::from("3 2")); // Player 0
-        game.play(String::from("2 8")); // Player 1
-        game.play(String::from("8 7")); // Player 0
-        game.play(String::from("8 5")); // Player 1
-        game.play(String::from("7 8")); // Player 0
-        game.play(String::from("5 8")); // Player 1
-        game.play(String::from("6 8")); // Player 0
-        game.play(String::from("2 7")); // Player 1
-        game.play(String::from("6 4")); // Player 0
-        game.play(String::from("1 5")); // Player 1
-        game.play(String::from("4 6")); // Player 0
-        game.play(String::from("5 2")); // Player 1
-        game.play(String::from("6 6")); // Player 0
-        game.play(String::from("2 2")); // Player 1
-        game.play(String::from("6 7")); // Player 0
-        game.play(String::from("2 3")); // Player 1
-        game.play(String::from("7 0")); // Player 0
-        game.play(String::from("4 0")); // Player 1
-        game.play(String::from("5 0")); // Player 0
-        game.play(String::from("6 2")); // Player 1
-        game.play(String::from("0 7")); // Player 0
-        game.play(String::from("1 3")); // Player 1
-        game.play(String::from("3 0")); // Player 0
-        game.play(String::from("1 0")); // Player 1
-        game.play(String::from("4 2")); // Player 0
-        game.play(String::from("3 7")); // Player 1
-        game.play(String::from("2 4")); // Player 0
-        game.play(String::from("8 3")); // Player 1
-        game.play(String::from("7 2")); // Player 0
-        game.play(String::from("5 7")); // Player 1
         game.play(String::from("7 3")); // Player 0
-        game.play(String::from("3 1")); // Player 1
-        game.play(String::from("0 5")); // Player 0
-        game.play(String::from("2 6")); // Player 1
-        game.play(String::from("8 1")); // Player 0
-        game.play(String::from("6 5")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
-        game.play(String::from("")); // Player 0
-        game.play(String::from("")); // Player 1
+        assert_eq!(game.last_move, Some((7, 3)));
+        assert_eq!(game.p_boards[0][7], 0b000_100_000);
     }
 }

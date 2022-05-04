@@ -51,6 +51,7 @@ fn run_single(
         run_id: game_id,
         total_turns: 0,
         turns: Vec::new(),
+        final_state: Default::default(),
         winners: Vec::new(),
     };
     /////////// [END RECORD]
@@ -103,6 +104,7 @@ fn run_single(
     if record_game {
         game_run_record.total_turns = turn;
         game_run_record.winners = game.winners().unwrap();
+        game_run_record.final_state = game.get_state();
     }
     /////////// [END RECORD]
 
