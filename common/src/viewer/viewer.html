@@ -74,7 +74,7 @@
 
       // Print State & Board
       printState(turn["game_state"], document.getElementById("state-before"), record["board_representation"]);
-
+      printMessages(turn);
     }
 
     function printState(game_state, div, repr) {
@@ -159,6 +159,37 @@
 
     }
 
+    function printMessages(turn) {
+      // Print player input
+      let div_player_input = document.getElementById("player-input");
+      div_player_input.innerHTML = "";
+      let div_text = document.createElement("div");
+      div_text.textContent = `Game to Player ${turn["player"]}`;
+      div_player_input.append(div_text);
+
+      div_text = document.createElement("div");
+      let text = ""
+      for (const s of turn["player_input"]) {
+        text += `${s}<br/>`;
+      }
+      div_text.innerHTML = text
+
+      div_player_input.append(div_text);
+
+      // Print player output
+      let div_player_output = document.getElementById("player-output");
+      div_player_output.innerHTML = "";
+
+      div_text = document.createElement("div");
+      div_text.textContent = `Player ${turn["player"]} to Game`;
+      div_player_output.append(div_text);
+
+      div_text = document.createElement("div");
+      div_text.innerHTML = turn["player_move"];
+      div_player_output.append(div_text);
+
+
+    }
 
     function handleSubmit(event) {
 
