@@ -25,12 +25,18 @@
     </ul>
   </div>
   <div id="turns">
-    <div id="board-before">board</div>
+    <div id="state-before" class="game-state">
+      <div class="board">board</div>
+      <div class="state">state</div>
+    </div>
     <div id="messages">
       <div id="player-input">player-input</div>
       <div id="player-output">player-output</div>
     </div>
-    <div id="board-after">board-after</div>
+    <div id="state-after" class="game-state">
+      <div class="board">board</div>
+      <div class="state">state</div>
+    </div>
   </div>
 
 
@@ -51,7 +57,6 @@
 
       printRun();
 
-      console.log('json', record);
     }
 
     function printRun() {
@@ -66,6 +71,31 @@
     function printTurn() {
       turn = record['game_runs'][run_id]['turns'][turn_id];
       document.getElementById("turn").innerHTML = `Turn: ${turn_id} (of ${record['game_runs'][run_id]['turns'].length - 1})`;
+
+      // Print State & Board
+      printState(turn["game_state"], document.getElementById("state-before"), record["board_representation"]);
+
+    }
+
+    function printState(game_state, div, repr) {
+      //Print State
+      div_state = div.getElementsByClassName("state")[0];
+      div_state.innerHTML = "";
+      let table = document.createElement("table");
+      div_state.append(table);
+
+      state = game_state["state"];
+      keys = Object.keys(state).sort()
+      for (const k of keys) {
+        tr = document.createElement("tr");
+        tr.innerHTML = `<td>${k}</td><td>${state[k]}</td>`
+        table.append(tr);
+      }
+
+    }
+
+    function printBoard(board, div, repr) {
+
     }
 
 

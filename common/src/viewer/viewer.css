@@ -2,7 +2,7 @@ div {
   border: solid black;
 }
 
-#board-before {
+.game-state {
   float: left;
   width: 35%;
 }
@@ -10,11 +10,6 @@ div {
 #messages {
   float: left;
   width: 28%;
-}
-
-#board-after {
-  float: left;
-  width: 35%;
 }
 
 .turns:after {
