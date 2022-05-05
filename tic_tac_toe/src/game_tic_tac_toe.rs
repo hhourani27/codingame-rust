@@ -90,7 +90,17 @@ impl TicTacToeGame {
 
         // (2) For each valid square add list of valid moves
         let mut valid_moves: Vec<(u8, u8)> = Vec::new();
-        for (r, c) in iproduct!(0..3, 0..3) {
+        for (r, c) in [
+            (0, 0),
+            (0, 1),
+            (0, 2),
+            (1, 0),
+            (1, 1),
+            (1, 2),
+            (2, 0),
+            (2, 1),
+            (2, 2),
+        ] {
             if TicTacToeGame::get_bit(valid_squares, r, c) == 1 {
                 let sq_ix = (r * 3 + c) as usize;
                 let valid_moves_in_square =

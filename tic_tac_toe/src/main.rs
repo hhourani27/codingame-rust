@@ -4,6 +4,8 @@ mod player;
 use common::simulator;
 use common::Game;
 
+use std::time::{Duration, Instant};
+
 #[allow(unused_must_use)]
 
 fn main() {
@@ -11,10 +13,16 @@ fn main() {
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/tic_tac_toe/output";
 
+    let start = Instant::now();
+
     simulator::run(
         TicTacToeGame::new,
         &players,
-        50,
-        Some(record_path.to_string()),
+        5000,
+        //Some(record_path.to_string()),
+        None,
     );
+
+    let duration = start.elapsed();
+    println!("Time elapsed is: {:?}", duration);
 }
