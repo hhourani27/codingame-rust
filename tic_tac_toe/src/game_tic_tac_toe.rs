@@ -227,8 +227,7 @@ impl Game for TicTacToeGame {
         out.push(valid_moves.N.to_string());
 
         // (3) Output valid moves
-        for i in 0..valid_moves.N {
-            let m = valid_moves.arr[i];
+        for m in valid_moves.get() {
             out.push(format!("{} {}", m.0, m.1));
         }
 
@@ -249,7 +248,7 @@ impl Game for TicTacToeGame {
         // (2) Check if move is valid
         let valid_moves =
             TicTacToeGame::valid_moves(&self.p_boards, self.locked_squares, self.last_move);
-        if !valid_moves.arr[0..valid_moves.N].contains(&(row, col)) {
+        if !valid_moves.get().contains(&(row, col)) {
             self.last_move_result = Some(MoveResult::InvalidMove);
             self.active = false;
             self.winners = if pid == 0 {
@@ -619,33 +618,23 @@ mod tests {
     fn test_valid_moves_in_square() {
         let valid_moves = TicTacToeGame::valid_moves_in_square(0b110_111_011);
         let expected_moves = vec![(0, 2), (2, 0)];
-        assert!(expected_moves
-            .iter()
-            .all(|m| valid_moves.arr[0..valid_moves.N].contains(m)));
+        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
 
         let valid_moves = TicTacToeGame::valid_moves_in_square(0b011_010_001);
         let expected_moves = vec![(0, 0), (1, 0), (1, 2), (2, 0), (2, 1)];
-        assert!(expected_moves
-            .iter()
-            .all(|m| valid_moves.arr[0..valid_moves.N].contains(m)));
+        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
 
         let valid_moves = TicTacToeGame::valid_moves_in_square(0b000_110_000);
         let expected_moves = vec![(0, 0), (0, 1), (0, 2), (1, 2), (2, 0), (2, 1), (2, 2)];
-        assert!(expected_moves
-            .iter()
-            .all(|m| valid_moves.arr[0..valid_moves.N].contains(m)));
+        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
 
         let valid_moves = TicTacToeGame::valid_moves_in_square(0b101_111_011);
         let expected_moves = vec![(0, 1), (2, 0)];
-        assert!(expected_moves
-            .iter()
-            .all(|m| valid_moves.arr[0..valid_moves.N].contains(m)));
+        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
 
         let valid_moves = TicTacToeGame::valid_moves_in_square(0b100_000_110);
         let expected_moves = vec![(0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 2)];
-        assert!(expected_moves
-            .iter()
-            .all(|m| valid_moves.arr[0..valid_moves.N].contains(m)));
+        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
 
         let valid_moves = TicTacToeGame::valid_moves_in_square(0b000_000_000);
         let expected_moves = vec![
@@ -659,9 +648,7 @@ mod tests {
             (2, 1),
             (2, 2),
         ];
-        assert!(expected_moves
-            .iter()
-            .all(|m| valid_moves.arr[0..valid_moves.N].contains(m)));
+        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
 
         let valid_moves = TicTacToeGame::valid_moves_in_square(0b111_111_111);
         assert_eq!(valid_moves.N, 0)
@@ -683,7 +670,7 @@ mod tests {
 
         let expected_moves: Vec<(u8, u8)> = iproduct!(0..9, 0..9).collect();
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (5, 7));
@@ -703,7 +690,7 @@ mod tests {
             (1, 4),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (2, 5));
@@ -722,7 +709,7 @@ mod tests {
             (8, 4),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (8, 4));
@@ -742,7 +729,7 @@ mod tests {
             (3, 5),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (4, 5));
@@ -762,7 +749,7 @@ mod tests {
             (0, 8),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (1, 8));
@@ -781,7 +768,7 @@ mod tests {
             (1, 4),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (0, 3));
@@ -791,7 +778,7 @@ mod tests {
 
         let expected_moves: Vec<(u8, u8)> = vec![(8, 5), (7, 3), (6, 3), (8, 3), (6, 5), (7, 5)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (7, 3));
@@ -802,7 +789,7 @@ mod tests {
         let expected_moves: Vec<(u8, u8)> =
             vec![(0, 5), (0, 4), (2, 4), (2, 3), (1, 5), (1, 3), (1, 4)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (0, 4));
@@ -821,7 +808,7 @@ mod tests {
             (2, 6),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (2, 6));
@@ -840,7 +827,7 @@ mod tests {
             (5, 3),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (4, 4));
@@ -850,7 +837,7 @@ mod tests {
 
         let expected_moves: Vec<(u8, u8)> = vec![(2, 4), (1, 4), (1, 5), (1, 3), (2, 3)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (2, 4));
@@ -869,7 +856,7 @@ mod tests {
             (1, 2),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (1, 1));
@@ -880,7 +867,7 @@ mod tests {
         let expected_moves: Vec<(u8, u8)> =
             vec![(0, 8), (1, 6), (1, 7), (2, 8), (2, 7), (0, 7), (0, 6)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (0, 8));
@@ -899,7 +886,7 @@ mod tests {
             (5, 2),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (5, 0));
@@ -909,7 +896,7 @@ mod tests {
 
         let expected_moves: Vec<(u8, u8)> = vec![(2, 3), (1, 4), (1, 5), (1, 3)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (1, 4));
@@ -920,7 +907,7 @@ mod tests {
         let expected_moves: Vec<(u8, u8)> =
             vec![(0, 0), (0, 1), (1, 2), (0, 2), (1, 0), (2, 0), (2, 2)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (0, 1));
@@ -930,7 +917,7 @@ mod tests {
 
         let expected_moves: Vec<(u8, u8)> = vec![(6, 5), (7, 5), (8, 3), (8, 5)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (6, 5));
@@ -975,7 +962,7 @@ mod tests {
             (4, 8),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (8, 5));
@@ -1018,7 +1005,7 @@ mod tests {
             (4, 2),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (5, 8));
@@ -1053,7 +1040,7 @@ mod tests {
             (3, 6),
         ];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (4, 1));
@@ -1063,7 +1050,7 @@ mod tests {
 
         let expected_moves: Vec<(u8, u8)> = vec![(2, 0), (0, 2), (1, 2), (1, 0), (2, 2), (0, 0)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
 
         //
         place_move(&mut p_boards[0], (1, 0));
@@ -1073,7 +1060,7 @@ mod tests {
 
         let expected_moves: Vec<(u8, u8)> = vec![(2, 8), (0, 6), (0, 7), (2, 7)];
         let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.arr[0..valid_moves.N]);
+        assert_vec_eq!(expected_moves, valid_moves.get());
     }
 
     #[test]

@@ -25,6 +25,10 @@ impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
         self.arr[self.N] = e;
         self.N += 1;
     }
+
+    pub fn get(&self) -> &[T] {
+        &self.arr[0..self.N]
+    }
 }
 
 pub trait Game {
