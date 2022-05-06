@@ -5,6 +5,7 @@ use std::io::Error;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn run_single(
     game: &mut impl Game,
@@ -151,7 +152,12 @@ where
     }
     // [RECORD] After run is over, record run
     if record_game {
-        let record_file = format!("{}/record.json", record_path.unwrap());
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+
+        let record_file = format!("{}/record_{}.json", record_path.unwrap(), timestamp);
 
         let mut _file = File::create(record_file)?;
         serde_json::to_writer(_file, &record)?;
