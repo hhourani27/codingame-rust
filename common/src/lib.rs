@@ -1,4 +1,5 @@
 pub mod simulator;
+use serde::Serialize;
 
 #[macro_export]
 macro_rules! assert_vec_eq {
@@ -38,14 +39,22 @@ pub trait Game {
 
     fn play(&mut self, msg: String);
 
-    fn winners(&self) -> Option<Vec<bool>>;
+    fn winners(&self) -> Option<Vec<WinLossTie>>;
 
     fn get_state(&self) -> record::GameState;
 
     fn get_board_representation() -> record::BoardRepresentation;
 }
 
+#[derive(Serialize, Debug, Clone, Copy)]
+pub enum WinLossTie {
+    Win,
+    Loss,
+    Tie,
+}
+
 pub mod record {
+    use super::WinLossTie;
     use serde::Serialize;
     use std::collections::HashMap;
 
@@ -75,7 +84,7 @@ pub mod record {
         pub total_turns: u32,
         pub turns: Vec<GameTurn>,
         pub final_state: GameState,
-        pub winners: Vec<bool>,
+        pub winners: Vec<WinLossTie>,
     }
 
     #[derive(Serialize)]

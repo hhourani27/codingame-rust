@@ -18,7 +18,7 @@ fn main() {
     simulator::run(
         TicTacToeGame::new,
         &players,
-        50,
+        10,
         Some(record_path.to_string()),
         //None,
     );

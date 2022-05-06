@@ -1,5 +1,5 @@
 use common::record;
-use common::{Game, Message, StackVector};
+use common::{Game, Message, StackVector, WinLossTie};
 use itertools::iproduct;
 use std::collections::HashMap;
 use std::fmt;
@@ -45,7 +45,7 @@ pub struct TicTacToeGame {
 
     last_move: Option<(u8, u8)>,
     last_move_result: Option<MoveResult>,
-    winners: Option<(bool, bool)>,
+    winners: Option<(WinLossTie, WinLossTie)>,
 }
 impl fmt::Display for TicTacToeGame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -252,9 +252,9 @@ impl Game for TicTacToeGame {
             self.last_move_result = Some(MoveResult::InvalidMove);
             self.active = false;
             self.winners = if pid == 0 {
-                Some((false, true))
+                Some((WinLossTie::Loss, WinLossTie::Win))
             } else {
-                Some((true, false))
+                Some((WinLossTie::Win, WinLossTie::Loss))
             };
 
             return;
@@ -292,9 +292,9 @@ impl Game for TicTacToeGame {
             self.last_move_result = Some(MoveResult::MoveWinningBoard);
             self.active = false;
             self.winners = if pid == 0 {
-                Some((true, false))
+                Some((WinLossTie::Win, WinLossTie::Loss))
             } else {
-                Some((false, true))
+                Some((WinLossTie::Loss, WinLossTie::Win))
             }
         } else if self.locked_squares == 0b111_111_111 {
             self.last_move_result = Some(MoveResult::MoveFillingBoardWithoutWinning);
@@ -304,11 +304,11 @@ impl Game for TicTacToeGame {
                 self.p_squares[1].count_ones(),
             ];
             if won_squares[0] > won_squares[1] {
-                self.winners = Some((true, false));
+                self.winners = Some((WinLossTie::Win, WinLossTie::Loss));
             } else if won_squares[0] < won_squares[1] {
-                self.winners = Some((false, true));
+                self.winners = Some((WinLossTie::Loss, WinLossTie::Win));
             } else {
-                self.winners = Some((true, true));
+                self.winners = Some((WinLossTie::Tie, WinLossTie::Tie));
             }
         }
 
@@ -320,8 +320,8 @@ impl Game for TicTacToeGame {
         }
     }
 
-    fn winners(&self) -> Option<Vec<bool>> {
-        match self.winners {
+    fn winners(&self) -> Option<Vec<WinLossTie>> {
+        match &self.winners {
             Some(w) => Some(vec![w.0, w.1]),
             None => None,
         }

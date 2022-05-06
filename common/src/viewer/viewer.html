@@ -58,7 +58,7 @@
     function printRun() {
       game_run = record['game_runs'][run_id];
       document.getElementById("run-id").innerHTML = `Run ID : ${game_run["run_id"]} (${run_id} of ${record["game_runs"].length - 1})`;
-      document.getElementById("winners").innerHTML = "Winners : " + game_run["winners"].map((w, p) => `Player ${p} ${w ? '✅' : '❌'} `).join('\t');
+      document.getElementById("winners").innerHTML = "Winners : " + game_run["winners"].map((w, p) => `Player ${p} ${w == "Win" ? '✅' : w == "Loss" ? '❌' : '✴️'} `).join('\t');
 
       turn_id = 0
       printTurn();
