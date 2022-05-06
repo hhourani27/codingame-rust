@@ -14,8 +14,7 @@ fn run_single(
     game_id: u32,
     record_game: bool,
 ) -> Option<record::GameRun> {
-    println!("Run {}", game_id);
-
+    //println!("Run {}", game_id);
     let player_count = players.len();
     // Vector of thread handles
     let mut p_threads: Vec<JoinHandle<()>> = Vec::new();
