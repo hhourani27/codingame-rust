@@ -4,7 +4,7 @@ mod player;
 use common::simulator;
 use common::Game;
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 #[allow(unused_must_use)]
 

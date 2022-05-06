@@ -1,6 +1,5 @@
 use common::record;
 use common::{Game, Message, StackVector, WinLossTie};
-use itertools::iproduct;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -521,6 +520,7 @@ impl Game for TicTacToeGame {
 mod tests {
     use super::*;
     use common::assert_vec_eq;
+    use itertools::iproduct;
 
     #[test]
     fn test_cell99_to_cell33() {

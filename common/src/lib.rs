@@ -16,6 +16,7 @@ pub struct Message {
     pub messages: Vec<String>,
 }
 
+#[allow(non_snake_case)]
 pub struct StackVector<T, const MAX_SIZE: usize> {
     pub arr: [T; MAX_SIZE],
     pub N: usize,
