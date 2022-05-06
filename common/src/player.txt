@@ -1,0 +1,28 @@
+How to manually import "player.rs" into CodinGame
+
+1/ Replace
+    use std::sync::mpsc::{Receiver, Sender};
+  by 
+    use std::io;
+
+2/ Replace
+    pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
+  by
+    fn main() {
+
+3/ Replace
+    while ctr_rcv.recv().unwrap() == true {
+  by
+    loop {
+
+4/ Replace
+    input_line = msg_rcv.recv().unwrap();
+  by
+    io::stdin().read_line(&mut input_line).unwrap();
+
+5/ 
+    msg_snd.send(format!(
+  by
+    println!(
+
+  & remove a parenthesis at the end of the line

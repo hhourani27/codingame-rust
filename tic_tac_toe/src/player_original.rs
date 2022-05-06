@@ -10,7 +10,7 @@ macro_rules! parse_input {
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
  **/
-fn play() {
+fn main() {
     // game loop
     loop {
         let mut input_line = String::new();
