@@ -11,14 +11,14 @@ use std::time::Instant;
 fn main() {
     const STATS: bool = true;
     const RECORD: bool = false;
-    const RUNS: u32 = 1000;
+    const RUNS: u32 = 500;
 
     let players = vec![player::play, player::play];
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/tic_tac_toe/output";
 
     let start = Instant::now();
 
-    let result = simulator::run(
+    let result = simulator::run_permut(
         TicTacToeGame::new,
         &players,
         RUNS,
@@ -30,7 +30,7 @@ fn main() {
     );
 
     let duration = start.elapsed();
-    println!("Ran {} games in {:?}", RUNS, duration);
+    println!("Ran {} games in {:?}", RUNS * 2, duration);
 
     if STATS == true {
         let stats = result.unwrap().unwrap();

@@ -1,5 +1,6 @@
 use crate::{record, WinLossTie};
 use crate::{Game, Message};
+use itertools::Itertools;
 use std::fs::File;
 use std::io::Error;
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -194,5 +195,51 @@ where
     }
     /////////// [END RECORD]
 
+    Ok(Some(stats))
+}
+
+pub fn run_permut<GC, G>(
+    game_constr: GC,
+    players: &Vec<
+        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Sync + Copy + 'static,
+    >,
+    nb_runs: u32,
+    record_path: Option<String>,
+    return_stats: bool,
+) -> Result<Option<RunStatistics>, Error>
+where
+    GC: Fn() -> G,
+    G: Game,
+{
+    let player_count = players.len();
+
+    let mut stats = RunStatistics::new(player_count);
+
+    let player_ids: Vec<usize> = (0..player_count).collect();
+    for perm in player_ids.iter().permutations(player_count) {
+        let mut perm_players = Vec::new();
+        for p in &perm {
+            perm_players.push(players[**p]);
+        }
+        let result = run(
+            &game_constr,
+            &perm_players,
+            nb_runs,
+            record_path.clone(),
+            return_stats,
+        )
+        .unwrap();
+
+        // Update stats (by taking the correct player id from the permuted list)
+        if return_stats == true {
+            let stats_t = result.unwrap();
+            for i in 0..player_count {
+                let p = *perm[i];
+                stats.players_win_loss[p].0 += stats_t.players_win_loss[i].0;
+                stats.players_win_loss[p].1 += stats_t.players_win_loss[i].1;
+                stats.players_win_loss[p].2 += stats_t.players_win_loss[i].2;
+            }
+        }
+    }
     Ok(Some(stats))
 }
