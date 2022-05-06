@@ -1,5 +1,6 @@
 use common::record;
 use common::{Game, Message};
+use itertools::iproduct;
 use std::collections::HashMap;
 use std::fmt;
 
