@@ -120,8 +120,8 @@ fn run_single(
     }
 }
 
-pub fn run<N, G>(
-    game_constr: N,
+pub fn run<GC, G>(
+    game_constr: GC,
     players: &Vec<
         impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Sync + Copy + 'static,
     >,
@@ -129,7 +129,7 @@ pub fn run<N, G>(
     record_path: Option<String>,
 ) -> Result<(), Error>
 where
-    N: Fn() -> G,
+    GC: Fn() -> G,
     G: Game,
 {
     // [RECORD] Create Record
