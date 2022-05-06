@@ -13,16 +13,16 @@ fn main() {
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/tic_tac_toe/output";
 
-    let start = Instant::now();
+    //let start = Instant::now();
 
     simulator::run(
         TicTacToeGame::new,
         &players,
-        5000,
-        //Some(record_path.to_string()),
-        None,
+        50,
+        Some(record_path.to_string()),
+        //None,
     );
 
-    let duration = start.elapsed();
-    println!("Time elapsed is: {:?}", duration);
+    //let duration = start.elapsed();
+    //println!("Time elapsed is: {:?}", duration);
 }

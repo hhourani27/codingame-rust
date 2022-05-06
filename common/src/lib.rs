@@ -15,6 +15,18 @@ pub struct Message {
     pub messages: Vec<String>,
 }
 
+pub struct StackVector<T, const MAX_SIZE: usize> {
+    pub arr: [T; MAX_SIZE],
+    pub N: usize,
+}
+
+impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
+    pub fn add(&mut self, e: T) {
+        self.arr[self.N] = e;
+        self.N += 1;
+    }
+}
+
 pub trait Game {
     fn new() -> Self;
 
