@@ -9,20 +9,31 @@ use std::time::{Duration, Instant};
 #[allow(unused_must_use)]
 
 fn main() {
-    let players = vec![player::play, player::play];
+    const STATS: bool = true;
+    const RECORD: bool = false;
+    const RUNS: u32 = 1000;
 
+    let players = vec![player::play, player::play];
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/tic_tac_toe/output";
 
-    //let start = Instant::now();
+    let start = Instant::now();
 
-    simulator::run(
+    let result = simulator::run(
         TicTacToeGame::new,
         &players,
-        10,
-        Some(record_path.to_string()),
-        //None,
+        RUNS,
+        match RECORD {
+            true => Some(record_path.to_string()),
+            false => None,
+        },
+        STATS,
     );
 
-    //let duration = start.elapsed();
-    //println!("Time elapsed is: {:?}", duration);
+    let duration = start.elapsed();
+    println!("Ran {} games in {:?}", RUNS, duration);
+
+    if STATS == true {
+        let stats = result.unwrap().unwrap();
+        println!("Win statistics : {:?}", stats.players_win_loss);
+    }
 }

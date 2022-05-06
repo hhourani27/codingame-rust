@@ -1,4 +1,4 @@
-use crate::record;
+use crate::{record, WinLossTie};
 use crate::{Game, Message};
 use std::fs::File;
 use std::io::Error;
@@ -6,6 +6,18 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+pub struct RunStatistics {
+    pub players_win_loss: Vec<(i32, i32, i32)>,
+}
+
+impl RunStatistics {
+    fn new(player_count: usize) -> RunStatistics {
+        RunStatistics {
+            players_win_loss: vec![(0, 0, 0); player_count as usize],
+        }
+    }
+}
 
 fn run_single(
     game: &mut impl Game,
@@ -127,7 +139,8 @@ pub fn run<GC, G>(
     >,
     nb_runs: u32,
     record_path: Option<String>,
-) -> Result<(), Error>
+    return_stats: bool,
+) -> Result<Option<RunStatistics>, Error>
 where
     GC: Fn() -> G,
     G: Game,
@@ -140,6 +153,10 @@ where
     };
     /////////// [END RECORD]
 
+    // [STATS] Create statistics
+    let mut stats = RunStatistics::new(players.len());
+    /////////// [END STATS]
+
     for i in 0..nb_runs {
         let mut game = game_constr();
         let run_record = run_single(&mut game, players, i, record_game);
@@ -149,8 +166,21 @@ where
             record.game_runs.push(run_record.unwrap());
         }
         /////////// [END RECORD]
+        //
+        // [STATS] After run is over, update stats
+        if return_stats == true {
+            let winners = game.winners().unwrap();
+            for (p, r) in winners.iter().enumerate() {
+                match r {
+                    WinLossTie::Win => stats.players_win_loss[p].0 += 1,
+                    WinLossTie::Loss => stats.players_win_loss[p].1 += 1,
+                    WinLossTie::Tie => stats.players_win_loss[p].2 += 1,
+                }
+            }
+        }
+        /////////// [END STATS]
     }
-    // [RECORD] After run is over, record run
+    // [RECORD] After all runs are over, print record
     if record_game {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -162,7 +192,7 @@ where
         let mut _file = File::create(record_file)?;
         serde_json::to_writer(_file, &record)?;
     }
-
-    Ok(())
     /////////// [END RECORD]
+
+    Ok(Some(stats))
 }
