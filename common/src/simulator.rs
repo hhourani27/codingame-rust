@@ -23,7 +23,7 @@ impl RunStatistics {
 fn run_single(
     game: &mut impl Game,
     players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Sync + Copy + 'static,
+        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Copy + 'static,
     >,
     game_id: u32,
     record_game: bool,
@@ -136,7 +136,7 @@ fn run_single(
 pub fn run<GC, G>(
     game_constr: GC,
     players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Sync + Copy + 'static,
+        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Copy + 'static,
     >,
     nb_runs: u32,
     record_path: Option<String>,
@@ -201,7 +201,7 @@ where
 pub fn run_permut<GC, G>(
     game_constr: GC,
     players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Sync + Copy + 'static,
+        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Copy + 'static,
     >,
     nb_runs: u32,
     record_path: Option<String>,

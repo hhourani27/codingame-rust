@@ -5,21 +5,24 @@ mod player_random;
 use common::simulator;
 use common::Game;
 
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
 
 #[allow(unused_must_use)]
 
 fn main() {
     const STATS: bool = true;
-    const RECORD: bool = false;
-    const RUNS: u32 = 500;
+    const RECORD: bool = true;
+    const RUNS: u32 = 1;
 
-    let players = vec![player_random::play, player_random::play];
+    let players: Vec<&'static (dyn Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Sync)> =
+        vec![&player_mcts::play, &player_random::play];
+
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/tic_tac_toe/output";
 
     let start = Instant::now();
 
-    let result = simulator::run_permut(
+    let result = simulator::run(
         TicTacToeGame::new,
         &players,
         RUNS,
