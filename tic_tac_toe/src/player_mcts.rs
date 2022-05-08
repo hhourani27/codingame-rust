@@ -1,4 +1,3 @@
-use rand::seq::SliceRandom;
 use std::sync::mpsc::{Receiver, Sender};
 
 macro_rules! parse_input {
@@ -7,31 +6,50 @@ macro_rules! parse_input {
     };
 }
 
-mod Game {
-    enum WinLossTie {
-        Win,
-        Loss,
-        Tie,
+pub struct StackVector<T, const MAX_SIZE: usize> {
+    pub arr: [T; MAX_SIZE],
+    pub len: usize,
+}
+
+impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
+    pub fn add(&mut self, e: T) {
+        self.arr[self.len] = e;
+        self.len += 1;
     }
 
+    pub fn get(&self) -> &[T] {
+        &self.arr[0..self.len]
+    }
+}
+
+mod Game {
+
+    use super::StackVector;
+
+    pub type Move = (u8, u8);
+
+    // An array of Game Scores, assuming that there'll be always a maxium of 4 players
+    pub type GameScore = [f32; 4];
+
+    #[derive(Clone)]
     pub struct State {
         /*
         2D array
         [pid] => [u16,u16,u16,u16,u16,u16,u16,u16,u16] (9 squares)
             Each u16 correspond to a 9-bit representation of a square.
         */
-        pub p_boards: [[u16; 9]; 2],
+        p_boards: [[u16; 9]; 2],
         // A 2D array : [player_id] => 8-bit number representing which squares are won by a player
-        pub p_squares: [u16; 2],
+        p_squares: [u16; 2],
         // represent which squares are locked
-        pub locked_squares: u16,
+        locked_squares: u16,
 
-        pub active: bool,
-        pub active_player: u8, // player who's turn is to do the next move
-        pub turn: u8,
+        active: bool,
+        active_player: u8, // player who's turn is to do the next move
+        turn: u8,
 
-        pub last_move: Option<(u8, u8)>,
-        pub winners: Option<(WinLossTie, WinLossTie)>,
+        last_move: Option<(u8, u8)>,
+        winners: Option<(WinLossTie, WinLossTie)>,
     }
 
     pub fn new() -> State {
@@ -109,6 +127,98 @@ mod Game {
         }
     }
 
+    pub fn is_terminal(state: &State) -> bool {
+        !state.active
+    }
+
+    pub fn get_scores(state: &State) -> GameScore {
+        match state.winners {
+            Some((WinLossTie::Win, WinLossTie::Loss)) => [1.0, 0.0, 0.0, 0.0],
+            Some((WinLossTie::Loss, WinLossTie::Win)) => [0.0, 1.0, 0.0, 0.0],
+            Some((WinLossTie::Tie, WinLossTie::Tie)) => [0.5, 0.5, 0.0, 0.0],
+            _ => panic!(),
+        }
+    }
+
+    pub fn valid_moves(state: &State) -> (u8, StackVector<(u8, u8), 81>) {
+        let p_boards = &state.p_boards;
+        let locked_squares = state.locked_squares;
+        let last_move = state.last_move;
+
+        // (1) Determine valid squares
+        let valid_squares: u16 = match last_move {
+            // If it's the first move, all squares are valid
+            None => 0b111_111_111,
+            // Else, check the last move
+            Some(m) => {
+                // Get the square referred to by the cell move
+                let sq = cell99_to_cell33(m);
+                if get_bit(locked_squares, sq.0, sq.1) == 0 {
+                    // If the square is not locked, only one square is valid
+                    0b1 << (2 - sq.0) * 3 + (2 - sq.1)
+                } else {
+                    // if square is locked, all non-locked squares are valid
+                    !locked_squares
+                }
+            }
+        };
+
+        // (2) For each valid square add list of valid moves
+        let mut valid_moves: StackVector<(u8, u8), 81> = StackVector {
+            arr: [(0, 0); 81],
+            len: 0,
+        };
+
+        for (r, c) in [
+            (0, 0),
+            (0, 1),
+            (0, 2),
+            (1, 0),
+            (1, 1),
+            (1, 2),
+            (2, 0),
+            (2, 1),
+            (2, 2),
+        ] {
+            if get_bit(valid_squares, r, c) == 1 {
+                let sq_ix = (r * 3 + c) as usize;
+                let valid_moves_in_square =
+                    valid_moves_in_square(p_boards[0][sq_ix] | p_boards[1][sq_ix]);
+
+                for i in 0..valid_moves_in_square.len {
+                    let m_sq = valid_moves_in_square.arr[i];
+                    valid_moves.add(cell33_to_cell99(m_sq, (r, c)));
+                }
+            }
+        }
+        (state.active_player, valid_moves)
+    }
+
+    /* #region(collapsed) [Private game functions] */
+    #[derive(Clone)]
+    enum WinLossTie {
+        Win,
+        Loss,
+        Tie,
+    }
+
+    /*
+        For a 9-bit representation of a square, return empty cells (0..2, 0..2)
+    */
+    fn valid_moves_in_square(square_bin: u16) -> StackVector<(u8, u8), 9> {
+        let mut valid_moves: StackVector<(u8, u8), 9> = StackVector {
+            arr: [(0, 0); 9],
+            len: 0,
+        };
+        let sq = square_bin;
+        for sh in 0..9 {
+            if (sq >> sh) & 0b1 == 0 {
+                valid_moves.add(((8 - sh) / 3, (8 - sh) % 3));
+            }
+        }
+        valid_moves
+    }
+
     /*
     Get the square position (0..2, 0..2) where a cell (0..8, 0..8) is located
     */
@@ -121,6 +231,20 @@ mod Game {
     */
     fn cell99_to_cell33(cell: (u8, u8)) -> (u8, u8) {
         (cell.0 % 3, cell.1 % 3)
+    }
+
+    /*
+    Convert a cell position in a 3x3 square to a cell position in a 9x9 board
+    */
+    fn cell33_to_cell99(cell: (u8, u8), square: (u8, u8)) -> (u8, u8) {
+        (cell.0 + square.0 * 3, cell.1 + square.1 * 3)
+    }
+
+    /*
+    From a 9-bit representation of a board or square, get the bit referred to by the row & col
+    */
+    fn get_bit(bit_9: u16, row: u8, col: u8) -> u8 {
+        ((bit_9 >> (2 - row) * 3 + (2 - col)) & 0b1) as u8
     }
 
     fn set_bit(bit_9: u16, row: u8, col: u8) -> u16 {
@@ -146,88 +270,267 @@ mod Game {
         }
         false
     }
+
+    /* #endregion */
 }
 
 mod MCTS {
 
     use super::Game;
+    use rand::Rng;
     use std::time::Instant;
 
     const MAX_NODE_COUNT: usize = 100_000;
     const TIME_LIMIT_MS: u128 = 100;
 
     #[derive(Clone, Copy)]
-    struct Node<MOVE: Copy> {
-        move_: Option<MOVE>,
+    struct Node {
+        move_: Option<Game::Move>,
         player: Option<u8>, // player who did the move
 
         parent: Option<usize>,
         child_first: Option<usize>,
         child_count: u8,
+        expanded: bool,
 
         visits: u32,
         score: f32,
     }
 
-    impl<MOVE: Copy> Default for Node<MOVE> {
+    impl Default for Node {
         fn default() -> Self {
             Node {
                 move_: None,
                 player: None,
+
                 parent: None,
                 child_first: None,
                 child_count: 0,
+                expanded: false,
+
                 visits: 0,
                 score: 0.0,
             }
         }
     }
 
-    pub struct MCTS<MOVE: Copy> {
-        arr: [Node<MOVE>; MAX_NODE_COUNT],
+    pub struct MCTS {
+        arr: [Node; MAX_NODE_COUNT],
         len: usize,
     }
 
-    pub fn new<MOVE: Copy>() -> MCTS<MOVE> {
+    pub fn new() -> MCTS {
         MCTS {
             arr: [Default::default(); MAX_NODE_COUNT],
             len: 0,
         }
     }
 
-    impl<MOVE: Copy> MCTS<MOVE> {
-        pub fn best_move(&self, state: Game::State, valid_moves: &Vec<MOVE>) -> MOVE {
+    impl MCTS {
+        pub fn best_move(
+            &mut self,
+            state: &mut Game::State,
+            valid_moves: &Vec<Game::Move>,
+            player: u8,
+        ) -> Game::Move {
+            /*
+                Find the best move
+                - Starting from State [state],
+                - And already given (for optimization) the [valid_moves] that [player] can do
+            */
             let start = Instant::now();
 
-            self.init(&state, valid_moves);
+            println!("[MCTS] init");
+            self.init(&state, valid_moves, player);
 
-            while start.elapsed().as_millis() < TIME_LIMIT_MS {}
+            while start.elapsed().as_millis() < TIME_LIMIT_MS {
+                println!("[MCTS] Selection");
+                let selected_node_idx = self.select(state);
 
-            todo!()
+                println!("[MCTS] Expansion");
+                let rollout_node_idx = self.expand(selected_node_idx, state);
+
+                println!("[MCTS] Simulation");
+                let score = self.simulate(state);
+
+                println!("[MCTS] Backpropagation");
+                self.backpropagate(rollout_node_idx, score);
+            }
+
+            println!("[MCTS] End. Sending best move");
+
+            // When time is up, choose the move with the best score
+            let mut max_score: f32 = -f32::INFINITY;
+            let mut max_score_child_idx = 0;
+            for c in self.arr[0].child_first.unwrap()
+                ..self.arr[0].child_first.unwrap() + self.arr[0].child_count as usize
+            {
+                let child = &self.arr[c];
+                let child_score = match child.visits {
+                    0 => -f32::INFINITY,
+                    _ => child.score / child.visits as f32,
+                };
+                if child_score > max_score {
+                    max_score = child_score;
+                    max_score_child_idx = c;
+                }
+            }
+
+            self.arr[max_score_child_idx].move_.unwrap()
         }
 
-        fn init(&self, state: &Game::State, valid_moves: &Vec<MOVE>) {
-            // Re-initilalize the node tree
-            self.len = 0;
-            self.arr[0] = Node {
-                move_: state.last_move,
-                player: todo!(),
-                parent: todo!(),
-                child_first: todo!(),
-                child_count: todo!(),
-                visits: todo!(),
-                score: todo!(),
+        fn init(&mut self, state: &Game::State, valid_moves: &Vec<Game::Move>, player: u8) {
+            // Re-initialize the node tree
+
+            // Re-initialize Root
+            self.arr[0] = Default::default();
+            self.arr[0].expanded = true;
+            self.len = 1;
+
+            // Create the children of root
+            self.arr[0].child_first = Some(1);
+            self.arr[0].child_count = valid_moves.len() as u8;
+            for vm in valid_moves {
+                self.create_child(0, *vm, player);
             }
+        }
+
+        fn create_child(&mut self, parent: usize, move_: Game::Move, player: u8) {
+            self.arr[self.len] = Node {
+                move_: Some(move_),
+                player: Some(player),
+                parent: Some(parent),
+                child_first: None,
+                child_count: 0,
+                expanded: false,
+                visits: 0,
+                score: 0.0,
+            };
+            self.len += 1
+        }
+
+        fn select(&self, state: &mut Game::State) -> usize {
+            /* Go down the tree, selecting each time the node with the largest UCB, until you reach an unexpanded node
+             On the way update the state.
+            */
+            let mut node_idx = 0;
+
+            while self.arr[node_idx].child_count > 0 {
+                let node = &self.arr[node_idx];
+
+                // Identify child with largest UCB
+                let mut max_ucb: f32 = 0.0;
+                let mut max_ucb_node_idx = 0;
+                for c in
+                    node.child_first.unwrap()..node.child_first.unwrap() + node.child_count as usize
+                {
+                    let child = &self.arr[c];
+                    let child_ucb = MCTS::ucb(node.visits, child.score, child.visits);
+                    if child_ucb == f32::INFINITY {
+                        //TODO: I'm choosing the first child with ucb=INF. Try to choose a bit more randomly
+                        max_ucb_node_idx = c;
+                        break;
+                    } else if child_ucb > max_ucb {
+                        max_ucb = child_ucb;
+                        max_ucb_node_idx = c;
+                    }
+                }
+
+                node_idx = max_ucb_node_idx;
+                Game::update_state(
+                    state,
+                    self.arr[node_idx].player.unwrap(),
+                    self.arr[node_idx].move_.unwrap(),
+                )
+            }
+
+            node_idx
+        }
+
+        fn ucb(parent_visit: u32, score: f32, visits: u32) -> f32 {
+            match visits {
+                0 => f32::INFINITY,
+                _ => {
+                    (score / visits as f32)
+                        + 1.41 * ((parent_visit as f32).ln() / (visits as f32)).sqrt()
+                }
+            }
+        }
+
+        fn expand(&mut self, selected_node_idx: usize, state: &mut Game::State) -> usize {
+            /*
+                Expand the node [selected_node_idx], given its [state]
+            */
+
+            let selected_node = &mut self.arr[selected_node_idx];
+            if selected_node.expanded == false {
+                // This is a non-expanded node, expand it and return it
+                selected_node.expanded = true;
+                return selected_node_idx;
+            } else if Game::is_terminal(state) {
+                // This is a terminal state, just return the node
+                return selected_node_idx;
+            } else {
+                // This is an already expanded node
+                // 1. Create its children, but do not expand them
+                let (player, valid_moves) = Game::valid_moves(state);
+
+                let child_first = self.len;
+                let child_count = valid_moves.len;
+                selected_node.child_first = Some(child_first);
+                selected_node.child_count = child_count as u8;
+                for i in 0..valid_moves.len {
+                    self.create_child(selected_node_idx, valid_moves.arr[i], player)
+                }
+
+                //2. Choose a random child, expand it and return it
+                let chosen_child_idx =
+                    rand::thread_rng().gen_range(child_first..child_first + child_count);
+                self.arr[chosen_child_idx].expanded = true;
+
+                Game::update_state(state, player, self.arr[chosen_child_idx].move_.unwrap());
+
+                return chosen_child_idx;
+            }
+        }
+
+        fn simulate(&self, state: &mut Game::State) -> Game::GameScore {
+            // Simulate the game until the end
+            while !Game::is_terminal(state) {
+                let (player, valid_moves) = Game::valid_moves(state);
+                let chosen_move = valid_moves.arr[rand::thread_rng().gen_range(0..valid_moves.len)];
+
+                Game::update_state(state, player, chosen_move);
+            }
+
+            // Get the result
+            Game::get_scores(state)
+        }
+
+        fn backpropagate(&mut self, selected_node_idx: usize, score: Game::GameScore) {
+            let mut node_idx = selected_node_idx;
+            while self.arr[node_idx].parent.is_some() {
+                self.arr[node_idx].visits += 1;
+                self.arr[node_idx].score += score[self.arr[node_idx].player.unwrap() as usize];
+
+                node_idx = self.arr[node_idx].parent.unwrap();
+            }
+
+            // Update visit count for the root node
+            self.arr[0].visits += 1;
         }
     }
 }
 
 #[allow(unused_variables, unused_assignments, unused_must_use)]
 pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
+    println!("[Player] Start ");
     let mut state = Game::new();
     let mut my_pid = 1; // Assume that I'm player 1
     let mut opp_pid = 0;
-    let mcts: MCTS::MCTS<(u8, u8)> = MCTS::new();
+
+    // Prepare MCTS
+    let mut mcts: MCTS::MCTS = MCTS::new();
 
     while ctr_rcv.recv().unwrap() == true {
         // (1) Read inputs
@@ -266,8 +569,11 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
         }
 
         // (3) Determine the next best action
+        let best_move = mcts.best_move(&mut state.clone(), &valid_actions, my_pid);
 
-        let chosen_move = valid_actions.choose(&mut rand::thread_rng()).unwrap();
-        msg_snd.send(format!("{} {}", chosen_move.0, chosen_move.1));
+        // (4) Update state with my action
+        Game::update_state(&mut state, my_pid, best_move);
+
+        msg_snd.send(format!("{} {}", best_move.0, best_move.1));
     }
 }
