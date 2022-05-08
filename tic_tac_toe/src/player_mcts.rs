@@ -22,7 +22,7 @@ impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
     }
 }
 
-mod Game {
+mod game {
 
     use super::StackVector;
 
@@ -185,9 +185,8 @@ mod Game {
                 let valid_moves_in_square =
                     valid_moves_in_square(p_boards[0][sq_ix] | p_boards[1][sq_ix]);
 
-                for i in 0..valid_moves_in_square.len {
-                    let m_sq = valid_moves_in_square.arr[i];
-                    valid_moves.add(cell33_to_cell99(m_sq, (r, c)));
+                for m_sq in valid_moves_in_square.get() {
+                    valid_moves.add(cell33_to_cell99(*m_sq, (r, c)));
                 }
             }
         }
@@ -274,9 +273,9 @@ mod Game {
     /* #endregion */
 }
 
-mod MCTS {
+mod mcts {
 
-    use super::Game;
+    use super::game;
     use rand::Rng;
     use std::time::Instant;
 
@@ -285,7 +284,7 @@ mod MCTS {
 
     #[derive(Clone, Copy)]
     struct Node {
-        move_: Option<Game::Move>,
+        move_: Option<game::Move>,
         player: Option<u8>, // player who did the move
 
         parent: Option<usize>,
@@ -329,10 +328,10 @@ mod MCTS {
     impl MCTS {
         pub fn best_move(
             &mut self,
-            state: &mut Game::State,
-            valid_moves: &Vec<Game::Move>,
+            state: &mut game::State,
+            valid_moves: &Vec<game::Move>,
             player: u8,
-        ) -> Game::Move {
+        ) -> game::Move {
             /*
                 Find the best move
                 - Starting from State [state],
@@ -341,7 +340,7 @@ mod MCTS {
             let start = Instant::now();
 
             println!("[MCTS] init");
-            self.init(&state, valid_moves, player);
+            self.init(valid_moves, player);
 
             while start.elapsed().as_millis() < TIME_LIMIT_MS {
                 println!("[MCTS] Selection");
@@ -379,7 +378,7 @@ mod MCTS {
             self.arr[max_score_child_idx].move_.unwrap()
         }
 
-        fn init(&mut self, state: &Game::State, valid_moves: &Vec<Game::Move>, player: u8) {
+        fn init(&mut self, valid_moves: &Vec<game::Move>, player: u8) {
             // Re-initialize the node tree
 
             // Re-initialize Root
@@ -395,7 +394,7 @@ mod MCTS {
             }
         }
 
-        fn create_child(&mut self, parent: usize, move_: Game::Move, player: u8) {
+        fn create_child(&mut self, parent: usize, move_: game::Move, player: u8) {
             self.arr[self.len] = Node {
                 move_: Some(move_),
                 player: Some(player),
@@ -409,7 +408,7 @@ mod MCTS {
             self.len += 1
         }
 
-        fn select(&self, state: &mut Game::State) -> usize {
+        fn select(&self, state: &mut game::State) -> usize {
             /* Go down the tree, selecting each time the node with the largest UCB, until you reach an unexpanded node
              On the way update the state.
             */
@@ -437,7 +436,7 @@ mod MCTS {
                 }
 
                 node_idx = max_ucb_node_idx;
-                Game::update_state(
+                game::update_state(
                     state,
                     self.arr[node_idx].player.unwrap(),
                     self.arr[node_idx].move_.unwrap(),
@@ -457,7 +456,7 @@ mod MCTS {
             }
         }
 
-        fn expand(&mut self, selected_node_idx: usize, state: &mut Game::State) -> usize {
+        fn expand(&mut self, selected_node_idx: usize, state: &mut game::State) -> usize {
             /*
                 Expand the node [selected_node_idx], given its [state]
             */
@@ -467,20 +466,20 @@ mod MCTS {
                 // This is a non-expanded node, expand it and return it
                 selected_node.expanded = true;
                 return selected_node_idx;
-            } else if Game::is_terminal(state) {
+            } else if game::is_terminal(state) {
                 // This is a terminal state, just return the node
                 return selected_node_idx;
             } else {
                 // This is an already expanded node
                 // 1. Create its children, but do not expand them
-                let (player, valid_moves) = Game::valid_moves(state);
+                let (player, valid_moves) = game::valid_moves(state);
 
                 let child_first = self.len;
                 let child_count = valid_moves.len;
                 selected_node.child_first = Some(child_first);
                 selected_node.child_count = child_count as u8;
-                for i in 0..valid_moves.len {
-                    self.create_child(selected_node_idx, valid_moves.arr[i], player)
+                for m in valid_moves.get() {
+                    self.create_child(selected_node_idx, *m, player)
                 }
 
                 //2. Choose a random child, expand it and return it
@@ -488,26 +487,26 @@ mod MCTS {
                     rand::thread_rng().gen_range(child_first..child_first + child_count);
                 self.arr[chosen_child_idx].expanded = true;
 
-                Game::update_state(state, player, self.arr[chosen_child_idx].move_.unwrap());
+                game::update_state(state, player, self.arr[chosen_child_idx].move_.unwrap());
 
                 return chosen_child_idx;
             }
         }
 
-        fn simulate(&self, state: &mut Game::State) -> Game::GameScore {
+        fn simulate(&self, state: &mut game::State) -> game::GameScore {
             // Simulate the game until the end
-            while !Game::is_terminal(state) {
-                let (player, valid_moves) = Game::valid_moves(state);
+            while !game::is_terminal(state) {
+                let (player, valid_moves) = game::valid_moves(state);
                 let chosen_move = valid_moves.arr[rand::thread_rng().gen_range(0..valid_moves.len)];
 
-                Game::update_state(state, player, chosen_move);
+                game::update_state(state, player, chosen_move);
             }
 
             // Get the result
-            Game::get_scores(state)
+            game::get_scores(state)
         }
 
-        fn backpropagate(&mut self, selected_node_idx: usize, score: Game::GameScore) {
+        fn backpropagate(&mut self, selected_node_idx: usize, score: game::GameScore) {
             let mut node_idx = selected_node_idx;
             while self.arr[node_idx].parent.is_some() {
                 self.arr[node_idx].visits += 1;
@@ -525,12 +524,12 @@ mod MCTS {
 #[allow(unused_variables, unused_assignments, unused_must_use)]
 pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
     println!("[Player] Start ");
-    let mut state = Game::new();
+    let mut state = game::new();
     let mut my_pid = 1; // Assume that I'm player 1
     let mut opp_pid = 0;
 
     // Prepare MCTS
-    let mut mcts: MCTS::MCTS = MCTS::new();
+    let mut mcts: mcts::MCTS = mcts::new();
 
     while ctr_rcv.recv().unwrap() == true {
         // (1) Read inputs
@@ -561,7 +560,7 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
             opp_pid = 1;
         } else {
             // Update the state with the opponent's last action
-            Game::update_state(
+            game::update_state(
                 &mut state,
                 opp_pid,
                 (opponent_row as u8, opponent_col as u8),
@@ -572,7 +571,7 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
         let best_move = mcts.best_move(&mut state.clone(), &valid_actions, my_pid);
 
         // (4) Update state with my action
-        Game::update_state(&mut state, my_pid, best_move);
+        game::update_state(&mut state, my_pid, best_move);
 
         msg_snd.send(format!("{} {}", best_move.0, best_move.1));
     }
