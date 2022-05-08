@@ -1,0 +1,11 @@
+{
+  "maptz.regionfolder": {
+    "[markdown]": {
+      "defaultFoldStartRegex": "\\/\\* #region\\(collapsed\\) \\[(.*)\\] \\*\/",
+      "foldEnd": "/* #endregion */",
+      "foldEndRegex": "\\/\\* #endregion \\*\\/",
+      "foldStart": "/* #region [NAME] */",
+      "foldStartRegex": "\\/\\* #region \\[(.*)\\] \\*\/"
+    }
+  }
+}
