@@ -1,3 +1,5 @@
+#![allow(warnings, unused)]
+
 use std::thread;
 
 fn f1(count: usize) {
