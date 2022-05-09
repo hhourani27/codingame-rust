@@ -27,11 +27,13 @@ mod game {
     use super::StackVector;
 
     pub type Move = (u8, u8);
+    // Max # of legal moves
+    pub const MAX_NB_MOVES: usize = 81;
 
     // An array of Game Scores, assuming that there'll be always a maxium of 4 players
     pub type GameScore = [f32; 4];
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct State {
         /*
         2D array
@@ -190,11 +192,12 @@ mod game {
                 }
             }
         }
+
         (state.active_player, valid_moves)
     }
 
     /* #region(collapsed) [Private game functions] */
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     enum WinLossTie {
         Win,
         Loss,
@@ -279,7 +282,7 @@ mod mcts {
     use rand::Rng;
     use std::time::Instant;
 
-    const MAX_NODE_COUNT: usize = 100_000;
+    const MAX_NODE_COUNT: usize = 20_000;
     const TIME_LIMIT_MS: u128 = 100;
 
     #[derive(Clone, Copy)]
@@ -316,19 +319,21 @@ mod mcts {
     pub struct MCTS {
         arr: [Node; MAX_NODE_COUNT],
         len: usize,
+        nb_simulations: u32,
     }
 
     pub fn new() -> MCTS {
         MCTS {
             arr: [Default::default(); MAX_NODE_COUNT],
             len: 0,
+            nb_simulations: 0,
         }
     }
 
     impl MCTS {
         pub fn best_move(
             &mut self,
-            state: &mut game::State,
+            root_state: &game::State,
             valid_moves: &Vec<game::Move>,
             player: u8,
         ) -> game::Move {
@@ -337,26 +342,35 @@ mod mcts {
                 - Starting from State [state],
                 - And already given (for optimization) the [valid_moves] that [player] can do
             */
-            let start = Instant::now();
 
-            println!("[MCTS] init");
+            //eprintln!("[MCTS] init");
+            let start = Instant::now();
             self.init(valid_moves, player);
 
-            while start.elapsed().as_millis() < TIME_LIMIT_MS {
-                println!("[MCTS] Selection");
-                let selected_node_idx = self.select(state);
+            while (start.elapsed().as_millis() < TIME_LIMIT_MS)
+                & (self.len < MAX_NODE_COUNT - game::MAX_NB_MOVES)
+            {
+                let mut state = root_state.clone();
 
-                println!("[MCTS] Expansion");
-                let rollout_node_idx = self.expand(selected_node_idx, state);
+                //eprintln!("[MCTS] Selection");
 
-                println!("[MCTS] Simulation");
-                let score = self.simulate(state);
+                let selected_node_idx = self.select(&mut state);
 
-                println!("[MCTS] Backpropagation");
+                //eprintln!("[MCTS] Expansion");
+                let rollout_node_idx = self.expand(selected_node_idx, &mut state);
+
+                //eprintln!("[MCTS] Simulation");
+                let score = self.simulate(&mut state);
+
                 self.backpropagate(rollout_node_idx, score);
+
+                self.nb_simulations += 1;
             }
 
-            println!("[MCTS] End. Sending best move");
+            eprintln!(
+                "[MCTS] End. Sending best move after expanding {} nodes and running {} simulations",
+                self.len, self.nb_simulations
+            );
 
             // When time is up, choose the move with the best score
             let mut max_score: f32 = -f32::INFINITY;
@@ -385,6 +399,7 @@ mod mcts {
             self.arr[0] = Default::default();
             self.arr[0].expanded = true;
             self.len = 1;
+            self.nb_simulations = 0;
 
             // Create the children of root
             self.arr[0].child_first = Some(1);
@@ -523,7 +538,8 @@ mod mcts {
 
 #[allow(unused_variables, unused_assignments, unused_must_use)]
 pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
-    println!("[Player] Start ");
+    eprintln!("[MCTS Player] Starting");
+
     let mut state = game::new();
     let mut my_pid = 1; // Assume that I'm player 1
     let mut opp_pid = 0;
@@ -568,7 +584,7 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
         }
 
         // (3) Determine the next best action
-        let best_move = mcts.best_move(&mut state.clone(), &valid_actions, my_pid);
+        let best_move = mcts.best_move(&state, &valid_actions, my_pid);
 
         // (4) Update state with my action
         game::update_state(&mut state, my_pid, best_move);

@@ -12,8 +12,8 @@ use std::time::Instant;
 
 fn main() {
     const STATS: bool = true;
-    const RECORD: bool = true;
-    const RUNS: u32 = 1;
+    const RECORD: bool = false;
+    const RUNS: u32 = 10;
 
     let players: Vec<&'static (dyn Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Sync)> =
         vec![&player_mcts::play, &player_random::play];

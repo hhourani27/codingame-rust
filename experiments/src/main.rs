@@ -1,26 +1,15 @@
 #![allow(warnings, unused)]
 
-use std::thread;
-
-fn f1(count: usize) {
-    for i in 0..count { /*do something*/ }
-}
-
-fn f2(count: usize) {
-    for i in 0..count { /*do something*/ }
-}
-
-fn run(ops: &Vec<&'static (dyn Fn(usize) + Sync)>) {
-    for i in 0..ops.len() {
-        let func = ops[i];
-        thread::spawn(move || func(1000));
-    }
-}
-
 fn main() {
-    let ops = vec![f1, f1];
+    use std::thread::sleep;
+    use std::time::{Duration, Instant};
 
-    let ops: Vec<&'static (dyn Fn(usize) + Sync)> = vec![&f1, &f2];
-
-    run(&ops);
+    let instant = Instant::now();
+    let three_secs = Duration::from_secs(3);
+    sleep(three_secs);
+    let elapsed = instant.elapsed();
+    println!("{:?}, {}", elapsed, elapsed.as_millis());
+    sleep(three_secs);
+    let elapsed = instant.elapsed();
+    println!("{:?}, {}", elapsed, elapsed.as_millis());
 }
