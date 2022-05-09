@@ -282,7 +282,7 @@ mod mcts {
     use rand::Rng;
     use std::time::Instant;
 
-    const MAX_NODE_COUNT: usize = 20_000;
+    const MAX_NODE_COUNT: usize = 80_000;
     const TIME_LIMIT_MS: u128 = 100;
 
     #[derive(Clone, Copy)]
@@ -546,6 +546,8 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
 
     // Prepare MCTS
     let mut mcts: mcts::MCTS = mcts::new();
+    use std::mem;
+    println!("sizeof mcts {}", mem::size_of::<mcts::MCTS>());
 
     while ctr_rcv.recv().unwrap() == true {
         // (1) Read inputs

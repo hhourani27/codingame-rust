@@ -52,9 +52,11 @@ fn run_single(
 
         // Start player thread
         let player_func = players[pid];
-        let th = thread::spawn(move || {
-            player_func(sp_control_receiver, sp_message_receiver, ps_message_sender)
-        });
+
+        let th = thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(move || player_func(sp_control_receiver, sp_message_receiver, ps_message_sender))
+            .unwrap();
 
         p_threads.push(th);
     }
