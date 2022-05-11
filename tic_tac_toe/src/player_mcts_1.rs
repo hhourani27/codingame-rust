@@ -367,12 +367,10 @@ mod mcts {
                 self.nb_simulations += 1;
             }
 
-            /*
             eprintln!(
-                "[MCTS] End. Sending best move after expanding {} nodes and running {} simulations",
+                "[PMCTS_1] End. Sending best move after expanding {} nodes and running {} simulations",
                 self.len, self.nb_simulations
             );
-            */
 
             // When time is up, choose the move with the best score
             let mut max_score: f32 = -f32::INFINITY;

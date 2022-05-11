@@ -24,6 +24,8 @@ impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
 
 mod game {
 
+    use std::collections::HashMap;
+
     use super::StackVector;
 
     pub type Move = (u8, u8);
@@ -32,6 +34,80 @@ mod game {
 
     // An array of Game Scores, assuming that there'll be always a maxium of 4 players
     pub type GameScore = [f32; 4];
+
+    pub struct Cache {
+        //Cache with key (move, locked squares as 9-bit) and return a vector of valid squares
+        valid_squares: HashMap<u32, Vec<u8>>,
+    }
+
+    impl Cache {
+        pub fn new() -> Cache {
+            // Create cache
+
+            let mut cache = Cache {
+                valid_squares: HashMap::new(),
+            };
+
+            // List of all possible moves
+            let mut all_possible_moves: Vec<Option<Move>> = Vec::new();
+            all_possible_moves.push(None);
+            for r in 0..9 {
+                for c in 0..9 {
+                    all_possible_moves.push(Some((r, c)));
+                }
+            }
+
+            // Fill cache
+            for last_move in all_possible_moves.iter() {
+                for locked_squares in 0..=0b111_111_111 {
+                    let valid_squares: u16 = match last_move {
+                        // If it's the first move, all squares are valid
+                        None => 0b111_111_111,
+                        // Else, check the last move
+                        Some(m) => {
+                            // Get the square referred to by the cell move
+                            let sq = cell99_to_cell33(*m);
+                            if get_bit(locked_squares, sq.0, sq.1) == 0 {
+                                // If the square is not locked, only one square is valid
+                                0b1 << (2 - sq.0) * 3 + (2 - sq.1)
+                            } else {
+                                // if square is locked, all non-locked squares are valid
+                                !locked_squares
+                            }
+                        }
+                    };
+
+                    let mut valid_squares_idxs: Vec<u8> = Vec::new();
+                    for (r, c) in [
+                        (0, 0),
+                        (0, 1),
+                        (0, 2),
+                        (1, 0),
+                        (1, 1),
+                        (1, 2),
+                        (2, 0),
+                        (2, 1),
+                        (2, 2),
+                    ] {
+                        if get_bit(valid_squares, r, c) == 1 {
+                            valid_squares_idxs.push(r * 3 + c);
+                        }
+                    }
+
+                    let key: u32 = match last_move {
+                        Some((r, c)) => {
+                            (locked_squares as u32) * 1000 + (*r as u32) * 100 + (*c as u32) * 10
+                        }
+                        None => (locked_squares as u32) * 1000 + 1,
+                    };
+
+                    cache.valid_squares.insert(key, valid_squares_idxs);
+                }
+            }
+
+            cache
+        }
+    }
 
     #[derive(Clone, Debug)]
     pub struct State {
@@ -142,28 +218,19 @@ mod game {
         }
     }
 
-    pub fn valid_moves(state: &State) -> (u8, StackVector<(u8, u8), 81>) {
+    pub fn valid_moves(state: &State, cache: &Cache) -> (u8, StackVector<(u8, u8), 81>) {
         let p_boards = &state.p_boards;
         let locked_squares = state.locked_squares;
         let last_move = state.last_move;
 
         // (1) Determine valid squares
-        let valid_squares: u16 = match last_move {
-            // If it's the first move, all squares are valid
-            None => 0b111_111_111,
-            // Else, check the last move
-            Some(m) => {
-                // Get the square referred to by the cell move
-                let sq = cell99_to_cell33(m);
-                if get_bit(locked_squares, sq.0, sq.1) == 0 {
-                    // If the square is not locked, only one square is valid
-                    0b1 << (2 - sq.0) * 3 + (2 - sq.1)
-                } else {
-                    // if square is locked, all non-locked squares are valid
-                    !locked_squares
-                }
-            }
+
+        let key: u32 = match last_move {
+            Some((r, c)) => (locked_squares as u32) * 1000 + (r as u32) * 100 + (c as u32) * 10,
+            None => (locked_squares as u32) * 1000 + 1,
         };
+
+        let valid_squares = cache.valid_squares.get(&key).unwrap();
 
         // (2) For each valid square add list of valid moves
         let mut valid_moves: StackVector<(u8, u8), 81> = StackVector {
@@ -171,25 +238,12 @@ mod game {
             len: 0,
         };
 
-        for (r, c) in [
-            (0, 0),
-            (0, 1),
-            (0, 2),
-            (1, 0),
-            (1, 1),
-            (1, 2),
-            (2, 0),
-            (2, 1),
-            (2, 2),
-        ] {
-            if get_bit(valid_squares, r, c) == 1 {
-                let sq_ix = (r * 3 + c) as usize;
-                let valid_moves_in_square =
-                    valid_moves_in_square(p_boards[0][sq_ix] | p_boards[1][sq_ix]);
+        for sq_ix in valid_squares.iter() {
+            let valid_moves_in_square =
+                valid_moves_in_square(p_boards[0][*sq_ix as usize] | p_boards[1][*sq_ix as usize]);
 
-                for m_sq in valid_moves_in_square.get() {
-                    valid_moves.add(cell33_to_cell99(*m_sq, (r, c)));
-                }
+            for m_sq in valid_moves_in_square.get() {
+                valid_moves.add(cell33_to_cell99(*m_sq, (sq_ix / 3, sq_ix % 3)));
             }
         }
 
@@ -336,6 +390,7 @@ mod mcts {
             root_state: &game::State,
             valid_moves: &Vec<game::Move>,
             player: u8,
+            cache: &game::Cache,
         ) -> game::Move {
             /*
                 Find the best move
@@ -357,22 +412,20 @@ mod mcts {
                 let selected_node_idx = self.select(&mut state);
 
                 //eprintln!("[MCTS] Expansion");
-                let rollout_node_idx = self.expand(selected_node_idx, &mut state);
+                let rollout_node_idx = self.expand(selected_node_idx, &mut state, cache);
 
                 //eprintln!("[MCTS] Simulation");
-                let score = self.simulate(&mut state);
+                let score = self.simulate(&mut state, cache);
 
                 self.backpropagate(rollout_node_idx, score);
 
                 self.nb_simulations += 1;
             }
 
-            /*
             eprintln!(
-                "[MCTS] End. Sending best move after expanding {} nodes and running {} simulations",
+                "[PMCTS_2] End. Sending best move after expanding {} nodes and running {} simulations",
                 self.len, self.nb_simulations
             );
-            */
 
             // When time is up, choose the move with the best score
             let mut max_score: f32 = -f32::INFINITY;
@@ -473,7 +526,12 @@ mod mcts {
             }
         }
 
-        fn expand(&mut self, selected_node_idx: usize, state: &mut game::State) -> usize {
+        fn expand(
+            &mut self,
+            selected_node_idx: usize,
+            state: &mut game::State,
+            cache: &game::Cache,
+        ) -> usize {
             /*
                 Expand the node [selected_node_idx], given its [state]
             */
@@ -489,7 +547,7 @@ mod mcts {
             } else {
                 // This is an already expanded node
                 // 1. Create its children, but do not expand them
-                let (player, valid_moves) = game::valid_moves(state);
+                let (player, valid_moves) = game::valid_moves(state, cache);
 
                 let child_first = self.len;
                 let child_count = valid_moves.len;
@@ -510,10 +568,10 @@ mod mcts {
             }
         }
 
-        fn simulate(&self, state: &mut game::State) -> game::GameScore {
+        fn simulate(&self, state: &mut game::State, cache: &game::Cache) -> game::GameScore {
             // Simulate the game until the end
             while !game::is_terminal(state) {
-                let (player, valid_moves) = game::valid_moves(state);
+                let (player, valid_moves) = game::valid_moves(state, cache);
                 let chosen_move = valid_moves.arr[rand::thread_rng().gen_range(0..valid_moves.len)];
 
                 game::update_state(state, player, chosen_move);
@@ -544,8 +602,9 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
     let mut my_pid = 1; // Assume that I'm player 1
     let mut opp_pid = 0;
 
-    // Prepare MCTS
+    // Prepare MCTS & cache
     let mut mcts: mcts::MCTS = mcts::new();
+    let cache: game::Cache = game::Cache::new();
 
     while ctr_rcv.recv().unwrap() == true {
         // (1) Read inputs
@@ -584,11 +643,109 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
         }
 
         // (3) Determine the next best action
-        let best_move = mcts.best_move(&state, &valid_actions, my_pid);
+        let best_move = mcts.best_move(&state, &valid_actions, my_pid, &cache);
 
         // (4) Update state with my action
         game::update_state(&mut state, my_pid, best_move);
 
         msg_snd.send(format!("{} {}", best_move.0, best_move.1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::game;
+    use common::assert_vec_eq;
+    use itertools::iproduct;
+
+    #[test]
+    fn test_valid_moves1() {
+        let state = game::new();
+        let cache: game::Cache = game::Cache::new();
+
+        let valid_moves = game::valid_moves(&state, &cache);
+        let expected_moves: Vec<(u8, u8)> = iproduct!(0..9, 0..9).collect();
+
+        assert_vec_eq!(expected_moves, valid_moves.1.get());
+    }
+
+    #[test]
+    fn test_valid_moves2() {
+        let mut state = game::new();
+        let cache: game::Cache = game::Cache::new();
+
+        game::update_state(&mut state, 0, (2, 2));
+        game::update_state(&mut state, 1, (7, 8));
+
+        let valid_moves = game::valid_moves(&state, &cache);
+        let expected_moves: Vec<(u8, u8)> = vec![
+            (3, 6),
+            (3, 7),
+            (3, 8),
+            (4, 6),
+            (4, 7),
+            (4, 8),
+            (5, 6),
+            (5, 7),
+            (5, 8),
+        ];
+
+        eprintln!("{:?}", valid_moves.1.arr);
+
+        assert_vec_eq!(expected_moves, valid_moves.1.get());
+
+        game::update_state(&mut state, 0, (6, 4));
+        game::update_state(&mut state, 1, (3, 2));
+        game::update_state(&mut state, 0, (7, 2));
+        game::update_state(&mut state, 1, (6, 5));
+        game::update_state(&mut state, 0, (6, 1));
+        game::update_state(&mut state, 1, (4, 1));
+        game::update_state(&mut state, 0, (3, 4));
+        game::update_state(&mut state, 1, (5, 1));
+        game::update_state(&mut state, 0, (5, 7));
+        game::update_state(&mut state, 1, (3, 7));
+        game::update_state(&mut state, 0, (3, 0));
+        game::update_state(&mut state, 1, (0, 0));
+        game::update_state(&mut state, 0, (2, 0));
+        game::update_state(&mut state, 1, (0, 8));
+        game::update_state(&mut state, 0, (7, 1));
+        game::update_state(&mut state, 1, (4, 5));
+        game::update_state(&mut state, 0, (8, 3));
+        game::update_state(&mut state, 1, (0, 7));
+        game::update_state(&mut state, 0, (5, 0));
+        game::update_state(&mut state, 1, (0, 6));
+        game::update_state(&mut state, 0, (1, 2));
+        game::update_state(&mut state, 1, (7, 4));
+        game::update_state(&mut state, 0, (5, 3));
+        game::update_state(&mut state, 1, (2, 8));
+        game::update_state(&mut state, 0, (7, 6));
+        game::update_state(&mut state, 1, (1, 3));
+        game::update_state(&mut state, 0, (1, 4));
+        game::update_state(&mut state, 1, (5, 5));
+        game::update_state(&mut state, 0, (8, 7));
+        game::update_state(&mut state, 1, (5, 8));
+        game::update_state(&mut state, 0, (6, 7));
+        game::update_state(&mut state, 1, (3, 1));
+        game::update_state(&mut state, 0, (5, 2));
+        game::update_state(&mut state, 1, (7, 7));
+        game::update_state(&mut state, 0, (4, 4));
+        game::update_state(&mut state, 1, (4, 3));
+        game::update_state(&mut state, 0, (4, 7));
+        game::update_state(&mut state, 1, (3, 3));
+        game::update_state(&mut state, 0, (2, 1));
+        game::update_state(&mut state, 1, (4, 6));
+        game::update_state(&mut state, 0, (2, 7));
+        game::update_state(&mut state, 1, (3, 8));
+        game::update_state(&mut state, 0, (8, 4));
+        game::update_state(&mut state, 1, (4, 8));
+        game::update_state(&mut state, 0, (4, 0));
+        game::update_state(&mut state, 1, (2, 6));
+        game::update_state(&mut state, 0, (1, 8));
+        game::update_state(&mut state, 1, (1, 7));
+        game::update_state(&mut state, 0, (5, 4));
+        game::update_state(&mut state, 1, (3, 6));
+        game::update_state(&mut state, 0, (1, 6));
+        game::update_state(&mut state, 1, (6, 6));
+        game::update_state(&mut state, 0, (5, 6));
     }
 }
