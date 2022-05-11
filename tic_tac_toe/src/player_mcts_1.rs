@@ -367,10 +367,12 @@ mod mcts {
                 self.nb_simulations += 1;
             }
 
+            /*
             eprintln!(
                 "[MCTS] End. Sending best move after expanding {} nodes and running {} simulations",
                 self.len, self.nb_simulations
             );
+            */
 
             // When time is up, choose the move with the best score
             let mut max_score: f32 = -f32::INFINITY;
@@ -538,16 +540,12 @@ mod mcts {
 
 #[allow(unused_variables, unused_assignments, unused_must_use)]
 pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
-    eprintln!("[MCTS Player] Starting");
-
     let mut state = game::new();
     let mut my_pid = 1; // Assume that I'm player 1
     let mut opp_pid = 0;
 
     // Prepare MCTS
     let mut mcts: mcts::MCTS = mcts::new();
-    use std::mem;
-    println!("sizeof mcts {}", mem::size_of::<mcts::MCTS>());
 
     while ctr_rcv.recv().unwrap() == true {
         // (1) Read inputs

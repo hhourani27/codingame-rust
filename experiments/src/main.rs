@@ -1,15 +1,16 @@
 #![allow(warnings, unused)]
 
 fn main() {
-    use std::thread::sleep;
+    use rand::{Rng, SeedableRng};
+
     use std::time::{Duration, Instant};
 
     let instant = Instant::now();
     let three_secs = Duration::from_secs(3);
-    sleep(three_secs);
     let elapsed = instant.elapsed();
     println!("{:?}, {}", elapsed, elapsed.as_millis());
-    sleep(three_secs);
     let elapsed = instant.elapsed();
     println!("{:?}, {}", elapsed, elapsed.as_millis());
+
+    rand::thread_rng().gen_range(0..100);
 }
