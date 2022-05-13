@@ -25,6 +25,8 @@ impl fmt::Display for MoveResult {
     }
 }
 
+
+
 #[derive(Debug)]
 pub struct TicTacToeGame {
     /*
@@ -32,20 +34,22 @@ pub struct TicTacToeGame {
     [pid] => [u16,u16,u16,u16,u16,u16,u16,u16,u16] (9 squares)
         Each u16 correspond to a 9-bit representation of a square.
     */
-    p_boards: [[u16; 9]; 2],
+    p_boards: [u128; 2],
     // A 2D array : [player_id] => 8-bit number representing which squares are won by a player
-    p_squares: [u16; 2],
+    p_squares: [u128; 2],
     // represent which squares are locked
-    locked_squares: u16,
+    locked_squares: u128,
 
     active: bool,
     active_player: u8,
     turn: u8,
 
-    last_move: Option<(u8, u8)>,
+    last_move: u128,
     last_move_result: Option<MoveResult>,
     winners: Option<(WinLossTie, WinLossTie)>,
 }
+
+/*
 impl fmt::Display for TicTacToeGame {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut out = String::from("Game:\n");
@@ -62,144 +66,295 @@ impl fmt::Display for TicTacToeGame {
         write!(f, "{}", out)
     }
 }
+*/
 
 impl TicTacToeGame {
-    fn valid_moves(
-        p_boards: &[[u16; 9]; 2],
-        locked_squares: u16,
-        last_move: Option<(u8, u8)>,
-    ) -> StackVector<(u8, u8), 81> {
-        // (1) Determine valid squares
-        let valid_squares: u16 = match last_move {
-            // If it's the first move, all squares are valid
-            None => 0b111_111_111,
-            // Else, check the last move
+    fn movetuple_to_move81(move_: (u8, u8)) -> u128 {
+        let (r, c) = (move_.0 % 3, move_.1 % 3);
+        let (sq_r, sq_c) = (move_.0 / 3, move_.1 / 3);
+
+        let bit = 0b1 << (((2 - sq_r) * 3 + (2 - sq_c)) * 9) + ((2 - r) * 3 + (2 - c));
+
+        bit
+    }
+
+    fn move81_to_movetuple(move_:u128) -> (u8,u8) {
+        let (mut sq_r, mut sq_c) = (0,0);
+        let (mut r,mut c) = (0,0);
+
+        for i in 0..81 {
+
+            let v =(move_ >> (80-i)) & 0b1;
+
+            if v == 1 {
+                return (r+sq_r*3,c+sq_c*3 )
+            }
+
+            c+=1;
+            if c == 3 {
+                c = 0;
+                r += 1;
+            }
+            if r == 3 {
+                r = 0;
+                sq_c += 1;
+            }
+            if sq_c == 3 {
+                sq_c = 0;
+                sq_r += 1;
+            }
+        }
+        
+        panic!();
+    }
+
+    fn moves81_to_movetuples(moves:u128) -> Vec<(u8,u8)> {
+
+        let mut valid_moves: Vec<(u8,u8)> = Vec::new();
+
+        let (mut sq_r, mut sq_c) = (0,0);
+        let (mut r,mut c) = (0,0);
+
+        for i in 0..81 {
+
+            let v =(moves >> (80-i)) & 0b1;
+
+            if v == 1 {
+                valid_moves.push((r+sq_r*3,c+sq_c*3 ));
+            }
+
+            c+=1;
+            if c == 3 {
+                c = 0;
+                r += 1;
+            }
+            if r == 3 {
+                r = 0;
+                sq_c += 1;
+            }
+            if sq_c == 3 {
+                sq_c = 0;
+                sq_r += 1;
+            }
+        }
+        
+valid_moves
+    }
+ 
+
+    fn move_to_bit9(move_: (u8, u8)) -> u16 {
+        let (r, c) = (move_.0 % 3, move_.1 % 3);
+
+        let bit = 0b1 << ((2 - r) * 3 + (2 - c));
+
+        bit
+    }
+
+    fn square_of_move81(move_: (u8, u8)) -> u128 {
+        let (sq_r, sq_c) = (move_.0 / 3, move_.1 / 3);
+
+        let bit = 0b111111111 << (((2 - sq_r) * 3 + (2 - sq_c)) * 9);
+
+        bit
+    }
+
+    fn square_pointed_by_move81(move_: (u8,u8)) -> u128 {
+        let (sq_r, sq_c) = (move_.0 % 3, move_.1 % 3);
+
+        let bit = 0b111111111 << (((2 - sq_r) * 3 + (2 - sq_c)) * 9);
+
+        bit
+
+    }
+
+    fn valid_moves(p_boards: &[u128; 2], locked_squares: u128, last_move: u128) -> u128 {
+
+        let valid_moves = !(p_boards[0] | p_boards[1] | locked_squares);
+
+        match last_move {
+            0 => valid_moves,
             Some(m) => {
-                // Get the square referred to by the cell move
-                let sq = TicTacToeGame::cell99_to_cell33(m);
-                if TicTacToeGame::get_bit(locked_squares, sq.0, sq.1) == 0 {
-                    // If the square is not locked, only one square is valid
-                    0b1 << (2 - sq.0) * 3 + (2 - sq.1)
-                } else {
-                    // if square is locked, all non-locked squares are valid
-                    !locked_squares
+                let next_square = TicTacToeGame::square_pointed_by_move81(m);
+
+                // If next_square is not a locked square
+                if next_square & locked_squares == 0 {
+                    valid_moves & next_square 
                 }
-            }
-        };
-
-        // (2) For each valid square add list of valid moves
-        let mut valid_moves: StackVector<(u8, u8), 81> = StackVector {
-            arr: [(0, 0); 81],
-            N: 0,
-        };
-
-        for (r, c) in [
-            (0, 0),
-            (0, 1),
-            (0, 2),
-            (1, 0),
-            (1, 1),
-            (1, 2),
-            (2, 0),
-            (2, 1),
-            (2, 2),
-        ] {
-            if TicTacToeGame::get_bit(valid_squares, r, c) == 1 {
-                let sq_ix = (r * 3 + c) as usize;
-                let valid_moves_in_square =
-                    TicTacToeGame::valid_moves_in_square(p_boards[0][sq_ix] | p_boards[1][sq_ix]);
-
-                for i in 0..valid_moves_in_square.N {
-                    let m_sq = valid_moves_in_square.arr[i];
-                    valid_moves.add(TicTacToeGame::cell33_to_cell99(m_sq, (r, c)));
-                }
+                else {
+                    valid_moves
+                }        
             }
         }
-        valid_moves
+
     }
 
-    /*
-        For a 9-bit representation of a square, return empty cells (0..2, 0..2)
-    */
-    fn valid_moves_in_square(square_bin: u16) -> StackVector<(u8, u8), 9> {
-        let mut valid_moves: StackVector<(u8, u8), 9> = StackVector {
-            arr: [(0, 0); 9],
-            N: 0,
-        };
-        let sq = square_bin;
-        for sh in 0..9 {
-            if (sq >> sh) & 0b1 == 0 {
-                valid_moves.add(((8 - sh) / 3, (8 - sh) % 3));
-            }
-        }
-        valid_moves
-    }
-
-    /*
-    Get the square position (0..2, 0..2) where a cell (0..8, 0..8) is located
-    */
-    fn square_of_cell(cell: (u8, u8)) -> (u8, u8) {
-        (cell.0 / 3, cell.1 / 3)
-    }
-
-    /*
-    Convert a cell position in a 9x9 board to a cell position in a 3x3 square
-    */
-    fn cell99_to_cell33(cell: (u8, u8)) -> (u8, u8) {
-        (cell.0 % 3, cell.1 % 3)
-    }
-
-    /*
-    Convert a cell position in a 3x3 square to a cell position in a 9x9 board
-    */
-    fn cell33_to_cell99(cell: (u8, u8), square: (u8, u8)) -> (u8, u8) {
-        (cell.0 + square.0 * 3, cell.1 + square.1 * 3)
-    }
-
-    /*
-    From a 9-bit representation of a board or square, get the bit referred to by the row & col
-    */
     fn get_bit(bit_9: u16, row: u8, col: u8) -> u8 {
         ((bit_9 >> (2 - row) * 3 + (2 - col)) & 0b1) as u8
     }
 
-    fn set_bit(bit_9: u16, row: u8, col: u8) -> u16 {
-        (0b1 << ((2 - row) * 3 + (2 - col))) | bit_9
-    }
+    fn won_the_square(p_board81:u128, sq_idx:u8) -> bool {
+        const all_winning_configurations: [[u128; 8]; 9] = [
+        [0b111000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000111000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000111_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b100100100_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b010010010_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b001001001_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b100010001_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b001010100_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000],
+        
+        [0b000000000_111000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000111000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000111_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_100100100_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_010010010_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_001001001_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_100010001_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_001010100_000000000_000000000_000000000_000000000_000000000_000000000_000000000],
+        
+        [0b000000000_000000000_111000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000111000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000111_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_100100100_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_010010010_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_001001001_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_100010001_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_001010100_000000000_000000000_000000000_000000000_000000000_000000000],
 
-    fn is_won(bit_9: u16) -> bool {
-        let winning_configurations: [u16; 8] = [
-            0b111000000,
-            0b000111000,
-            0b000000111,
-            0b100100100,
-            0b010010010,
-            0b001001001,
-            0b100010001,
-            0b001010100,
+        [0b000000000_000000000_000000000_111000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000111000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000111_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_100100100_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_010010010_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_001001001_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_100010001_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_001010100_000000000_000000000_000000000_000000000_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_111000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000111000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000111_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_100100100_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_010010010_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_001001001_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_100010001_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_001010100_000000000_000000000_000000000_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_000000000_111000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000111000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000111_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_100100100_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_010010010_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_001001001_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_100010001_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_001010100_000000000_000000000_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_000000000_000000000_111000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000111000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000111_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_100100100_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_010010010_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_001001001_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_100010001_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_001010100_000000000_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_111000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000111000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000111_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_100100100_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_010010010_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_001001001_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_100010001_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_001010100_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_111000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000111000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000111,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_100100100,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_010010010,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_001001001,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_100010001,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_001010100,]
         ];
 
+        let winning_configurations = all_winning_configurations[sq_idx as usize];
+
         for wc in winning_configurations {
-            if bit_9 & wc == wc {
+            if p_board81 & wc == wc {
                 return true;
             }
         }
-        false
+        false    
     }
+
+    fn won_the_board(p_squares81:u128) -> bool {
+        const winning_configurations :[u128;8] = [0b111111111_111111111_111111111_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_111111111_111111111_111111111_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_111111111_111111111_111111111,
+        0b111111111_000000000_000000000_111111111_000000000_000000000_111111111_000000000_000000000,
+        0b000000000_111111111_000000000_000000000_111111111_000000000_000000000_111111111_000000000,
+        0b000000000_000000000_111111111_000000000_000000000_111111111_000000000_000000000_111111111,
+        0b111111111_000000000_000000000_000000000_111111111_000000000_000000000_000000000_111111111,
+        0b000000000_000000000_111111111_000000000_111111111_000000000_111111111_000000000_000000000];
+
+        for wc in winning_configurations {
+            if p_squares81 & wc == wc {
+                return true;
+            }
+        }
+        false    
+    }
+
+    fn to_vector(board:u128) -> Vec<Vec<bool>> {
+        let (mut sq_r, mut sq_c) = (0,0);
+        let (mut r,mut c) = (0,0);
+
+        let mut vec_board: Vec<Vec<bool>>  = Vec::new();
+        for i in 0..9 {
+            vec_board.push(Vec::new());
+        }
+
+        for i in 0..81 {
+
+            let v =(board >> (80-i)) & 0b1;
+
+            vec_board[r+sq_r*3][c+sq_c*3] = match v  {
+                1 => true,
+                0 => false,
+                _ => panic!()
+            };
+
+            c+=1;
+            if c == 3 {
+                c == 0;
+                r += 1;
+            }
+            if r == 3 {
+                r == 0;
+                sq_c += 1;
+            }
+            if sq_c == 3 {
+                sq_c == 0;
+                sq_r += 1;
+            }
+        }
+
+vec_board    
+}
+
 }
 
 impl Game for TicTacToeGame {
     fn new() -> Self {
         TicTacToeGame {
-            p_boards: [[0b000_000_000; 9]; 2],
-            p_squares: [0b000_000_000; 2],
-            locked_squares: 0b000_000_000,
+            p_boards: [0; 2],
+            p_squares: [0; 2],
+            locked_squares: 0,
 
             active: true,
             active_player: 0,
             turn: 0,
 
-            last_move: None,
+            last_move: 0,
             last_move_result: None,
             winners: None,
         }
@@ -214,19 +369,21 @@ impl Game for TicTacToeGame {
         let mut out: Vec<String> = Vec::new();
 
         // (1) Output last move
-        out.push(match self.last_move {
-            None => String::from("-1 -1"),
-            Some(m) => format!("{} {}", m.0, m.1),
-        });
+        if self.last_move == 0 {
+            out.push(String::from("-1 -1"));
+        }
+        else {
+            let m = TicTacToeGame::move81_to_movetuple(self.last_move);
+            out.push(format!("{} {}", m.0, m.1));
+        }
 
         // (2) Output # of valid moves
-        let valid_moves =
-            TicTacToeGame::valid_moves(&self.p_boards, self.locked_squares, self.last_move);
+        let valid_moves = TicTacToeGame::moves81_to_movetuples(TicTacToeGame::valid_moves(&self.p_boards, self.locked_squares, self.last_move));
 
-        out.push(valid_moves.N.to_string());
+        out.push(valid_moves.len().to_string());
 
         // (3) Output valid moves
-        for m in valid_moves.get() {
+        for m in valid_moves.iter() {
             out.push(format!("{} {}", m.0, m.1));
         }
 
@@ -242,12 +399,17 @@ impl Game for TicTacToeGame {
         let row = parse_input!(_move[0], u8);
         let col = parse_input!(_move[1], u8);
 
+        let move_bit_81 = TicTacToeGame::movetuple_to_move81((row, col));
+        let square_bit_81 = TicTacToeGame::square_of_move81((row, col));
+        let sq_idx = (row/3)*3 + (col/3);
+
         let pid = self.active_player;
 
+        //TODO MODIFY THIS
         // (2) Check if move is valid
         let valid_moves =
             TicTacToeGame::valid_moves(&self.p_boards, self.locked_squares, self.last_move);
-        if !valid_moves.get().contains(&(row, col)) {
+        if valid_moves & move_bit_81 == 0 {
             self.last_move_result = Some(MoveResult::InvalidMove);
             self.active = false;
             self.winners = if pid == 0 {
@@ -262,32 +424,24 @@ impl Game for TicTacToeGame {
         self.last_move_result = Some(MoveResult::NormalMove);
         // (3) Perform move and update game state
         //  (3.1) Place move on board
-        let square = TicTacToeGame::square_of_cell((row, col));
-        let (row33, col33) = TicTacToeGame::cell99_to_cell33((row, col));
-        let sq_idx: usize = (square.0 * 3 + square.1) as usize;
-
-        self.p_boards[pid as usize][sq_idx] =
-            TicTacToeGame::set_bit(self.p_boards[pid as usize][sq_idx], row33, col33);
+        self.p_boards[pid as usize] |= move_bit_81;
 
         //  (3.2) Check if the player won the square
-        let p_square = self.p_boards[pid as usize][sq_idx];
-        if TicTacToeGame::is_won(p_square) {
+        if TicTacToeGame::won_the_square(self.p_boards[pid as usize], sq_idx) {
             self.last_move_result = Some(MoveResult::MoveWinningSquare);
             // Update the player's square status
-            self.p_squares[pid as usize] =
-                TicTacToeGame::set_bit(self.p_squares[pid as usize], square.0, square.1);
-
+            self.p_squares[pid as usize] |= square_bit_81;
             // Update the locked square status
-            self.locked_squares = TicTacToeGame::set_bit(self.locked_squares, square.0, square.1);
+            self.locked_squares |= square_bit_81;
+
         }
         // (3.3) If the player didn't win the square, check if it's filled
-        else if self.p_boards[0][sq_idx] | self.p_boards[1][sq_idx] == 0b111_111_111 {
+        else if (self.p_boards[0] | self.p_boards[1]) & square_bit_81 == square_bit_81 {
             self.last_move_result = Some(MoveResult::MoveFillingSquareWithoutWinningIt);
-            self.locked_squares = TicTacToeGame::set_bit(self.locked_squares, square.0, square.1);
+            self.locked_squares |= square_bit_81;
         }
-
-        // (4) Check if it's a winning move or a tie
-        if TicTacToeGame::is_won(self.p_squares[pid as usize]) {
+        // (4) Check if it's a global winning move or a tie
+        if TicTacToeGame::won_the_board(self.p_squares[pid as usize]) {
             self.last_move_result = Some(MoveResult::MoveWinningBoard);
             self.active = false;
             self.winners = if pid == 0 {
@@ -295,7 +449,7 @@ impl Game for TicTacToeGame {
             } else {
                 Some((WinLossTie::Loss, WinLossTie::Win))
             }
-        } else if self.locked_squares == 0b111_111_111 {
+        } else if self.locked_squares == 0b111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111 {
             self.last_move_result = Some(MoveResult::MoveFillingBoardWithoutWinning);
             self.active = false;
             let won_squares = [
@@ -327,36 +481,43 @@ impl Game for TicTacToeGame {
     }
 
     fn get_state(&self) -> record::GameState {
-        // Create Record Board
         let mut board: Vec<Vec<String>> = Vec::new();
+
+        // Create Record Board
+        let board_p0: Vec<Vec<bool>> = TicTacToeGame::to_vector(self.p_boards[0]);
+        let board_p1: Vec<Vec<bool>> = TicTacToeGame::to_vector(self.p_boards[1]);
+        let squares_p0 :Vec<Vec<bool>> = TicTacToeGame::to_vector(self.p_squares[0]); 
+        let squares_p1: Vec<Vec<bool>> = TicTacToeGame::to_vector(self.p_squares[1]);
+        let locked_squares :Vec<Vec<bool>> = TicTacToeGame::to_vector(self.locked_squares);
+
         for r in 0..9 {
             let mut row: Vec<String> = Vec::new();
             for c in 0..9 {
                 let mut cell_state = String::new();
 
-                // (1) Check if cell is occupied
-                let square = TicTacToeGame::square_of_cell((r, c));
-                let square_idx: usize = (square.0 * 3 + square.1) as usize;
-                let cell33 = TicTacToeGame::cell99_to_cell33((r, c));
-
-                if TicTacToeGame::get_bit(self.p_boards[0][square_idx], cell33.0, cell33.1) == 1 {
+                 // (1) Check if cell is occupied
+                if board_p0[r][c] == true {
                     cell_state.push('❌');
-                } else if TicTacToeGame::get_bit(self.p_boards[1][square_idx], cell33.0, cell33.1)
-                    == 1
-                {
+                }
+                else if board_p1[r][c] == true {
                     cell_state.push('⭕');
-                } else {
+                }
+                else {
                     cell_state.push('.');
                 }
 
+
                 // (2) Check if square is occupied
-                if TicTacToeGame::get_bit(self.p_squares[0], square.0, square.1) == 1 {
+                if squares_p0[r][c] == true {
                     cell_state.push('❌');
-                } else if TicTacToeGame::get_bit(self.p_squares[1], square.0, square.1) == 1 {
+                }
+                else if squares_p1[r][c] == true {
                     cell_state.push('⭕');
-                } else if TicTacToeGame::get_bit(self.locked_squares, square.0, square.1) == 1 {
+                }
+                else if locked_squares[r][c] == true {
                     cell_state.push('🔒');
-                } else {
+                }
+                else {
                     cell_state.push('.');
                 }
 
@@ -384,31 +545,14 @@ impl Game for TicTacToeGame {
                 Some(mr) => mr.to_string(),
             },
         );
-        state.insert(
-            "p_squares",
-            format!(
-                "[{}]",
-                self.p_squares.map(|v| format!("{:0>9b}", v)).join(", ")
-            ),
-        );
 
-        state.insert(
-            "p_board[0]",
-            format!(
-                "[{}]",
-                self.p_boards[0].map(|v| format!("{:0>9b}", v)).join(", ")
-            ),
-        );
+        state.insert("p_board[0]", format!("{:0>81b}", self.p_boards[0]));
+        state.insert("p_squares[0]", format!("{:0>81b}", self.p_squares[0]));
+        state.insert("p_board[1]", format!("{:0>81b}", self.p_boards[1]));
+        state.insert("p_squares[1]", format!("{:0>81b}", self.p_squares[1]));
 
-        state.insert(
-            "p_board[1]",
-            format!(
-                "[{}]",
-                self.p_boards[1].map(|v| format!("{:0>9b}", v)).join(", ")
-            ),
-        );
 
-        state.insert("locked_squares", format!("{:0>9b}", self.locked_squares));
+        state.insert("locked_squares", format!("{:0>81b}", self.locked_squares));
 
         record::GameState { board, state }
     }
@@ -523,603 +667,59 @@ mod tests {
     use itertools::iproduct;
 
     #[test]
-    fn test_cell99_to_cell33() {
-        assert_eq!(TicTacToeGame::cell99_to_cell33((0, 0)), (0, 0));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((0, 4)), (0, 1));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((0, 8)), (0, 2));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((2, 6)), (2, 0));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((4, 1)), (1, 1));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((5, 3)), (2, 0));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((6, 8)), (0, 2));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((7, 0)), (1, 0));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((7, 6)), (1, 0));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((8, 0)), (2, 0));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((8, 3)), (2, 0));
-        assert_eq!(TicTacToeGame::cell99_to_cell33((8, 8)), (2, 2));
+    fn test_movetuple_to_move81() {
+        assert_eq!(TicTacToeGame::movetuple_to_move81((0, 0)),0b100000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((0, 4)),0b000000000_010000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((0, 8)),0b000000000_000000000_001000000_000000000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((2, 6)),0b000000000_000000000_000000100_000000000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((4, 1)),0b000000000_000000000_000000000_000010000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((5, 3)),0b000000000_000000000_000000000_000000000_000000100_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((6, 8)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_001000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((7, 0)),0b000000000_000000000_000000000_000000000_000000000_000000000_000100000_000000000_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((7, 6)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000100000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((8, 0)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000100_000000000_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((8, 3)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000100_000000000);
+        assert_eq!(TicTacToeGame::movetuple_to_move81((8, 8)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000001);
     }
 
     #[test]
-    fn test_cell33_to_cell_99() {
-        let (cell33, sq, exp_cell99) = ((0, 0), (0, 0), (0, 0));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((0, 1), (0, 1), (0, 4));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((0, 2), (0, 2), (0, 8));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((2, 0), (0, 2), (2, 6));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((1, 1), (1, 0), (4, 1));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((2, 0), (1, 1), (5, 3));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((0, 2), (2, 2), (6, 8));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((1, 0), (2, 0), (7, 0));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((1, 0), (2, 2), (7, 6));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((2, 0), (2, 0), (8, 0));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((2, 0), (2, 1), (8, 3));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
-
-        let (cell33, sq, exp_cell99) = ((2, 2), (2, 2), (8, 8));
-        assert_eq!(TicTacToeGame::cell33_to_cell99(cell33, sq), exp_cell99);
+    fn test_move81_to_movetuple() {
+        assert_eq!(TicTacToeGame::move81_to_movetuple(0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000001000_000000000),(7,5));
+        assert_eq!(TicTacToeGame::move81_to_movetuple(0b000000000_001000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000),(0,5));
+        assert_eq!(TicTacToeGame::move81_to_movetuple(0b000000000_000000000_000000000_000000000_000000000_000000000_010000000_000000000_000000000),(6,1));
+        assert_eq!(TicTacToeGame::move81_to_movetuple(0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_010000000_000000000),(6,4));
+        assert_eq!(TicTacToeGame::move81_to_movetuple(0b100000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000),(0,0));
+        assert_eq!(TicTacToeGame::move81_to_movetuple(0b000000000_000000000_000000000_100000000_000000000_000000000_000000000_000000000_000000000),(3,0));
     }
 
     #[test]
-    fn test_square_of_cell() {
-        assert_eq!(TicTacToeGame::square_of_cell((1, 2)), (0, 0));
-        assert_eq!(TicTacToeGame::square_of_cell((4, 4)), (1, 1));
-        assert_eq!(TicTacToeGame::square_of_cell((4, 7)), (1, 2));
-        assert_eq!(TicTacToeGame::square_of_cell((6, 1)), (2, 0));
-        assert_eq!(TicTacToeGame::square_of_cell((8, 7)), (2, 2));
+    fn test_moves81_to_movetuples() {
+        let moves:u128 = 0b100000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000;
+        let move_tuples = TicTacToeGame::moves81_to_movetuples(moves);
+        let expected_move_tuples = vec![(0,0)];
+        assert_vec_eq!(move_tuples,expected_move_tuples);
+
+        let moves:u128 = 0b100011010_010101010_100010010_001101111_011001100_100111101_101000000_001111110_001010001;
+        let move_tuples = TicTacToeGame::moves81_to_movetuples(moves);
+        let expected_move_tuples = vec![(0,0),(1,1),(1,2),(2,1),(0,4),(1,3),(1,5),(2,4),(0,6),(1,7),(2,7),(3,2),(4,0),(4,2),(5,0),(5,1),(5,2),(3,4),(3,5),(4,5),(5,3),(3,6),(4,6),(4,7),(4,8),(5,6),(5,8),(6,0),(6,2),(6,5),(7,3),(7,4),(7,5),(8,3),(8,4),(6,8),(7,7),(8,8)];
+        assert_vec_eq!(move_tuples,expected_move_tuples);
+
     }
 
-    #[test]
-    fn test_get_bit() {
-        assert_eq!(TicTacToeGame::get_bit(0b110_111_011, 0, 0), 1);
-        assert_eq!(TicTacToeGame::get_bit(0b011_010_001, 0, 1), 1);
-        assert_eq!(TicTacToeGame::get_bit(0b000_110_000, 0, 2), 0);
-        assert_eq!(TicTacToeGame::get_bit(0b101_111_011, 1, 0), 1);
-        assert_eq!(TicTacToeGame::get_bit(0b011_110_000, 1, 1), 1);
-        assert_eq!(TicTacToeGame::get_bit(0b000_001_111, 1, 2), 1);
-        assert_eq!(TicTacToeGame::get_bit(0b100_000_110, 2, 0), 1);
-        assert_eq!(TicTacToeGame::get_bit(0b100_000_011, 2, 1), 1);
-        assert_eq!(TicTacToeGame::get_bit(0b110_101_110, 2, 2), 0);
-    }
 
     #[test]
-    fn test_set_bit() {
-        assert_eq!(TicTacToeGame::set_bit(0b000_000_000, 0, 0), 0b100_000_000);
-        assert_eq!(TicTacToeGame::set_bit(0b110_111_011, 0, 2), 0b111_111_011);
-        assert_eq!(TicTacToeGame::set_bit(0b011_110_000, 1, 2), 0b011_111_000);
-        assert_eq!(TicTacToeGame::set_bit(0b100_000_011, 2, 0), 0b100_000_111);
-    }
-
-    #[test]
-    fn test_is_won() {
-        assert_eq!(TicTacToeGame::is_won(0b111000000), true);
-        assert_eq!(TicTacToeGame::is_won(0b110000000), false);
-        assert_eq!(TicTacToeGame::is_won(0b111000001), true);
-    }
-
-    #[test]
-    fn test_valid_moves_in_square() {
-        let valid_moves = TicTacToeGame::valid_moves_in_square(0b110_111_011);
-        let expected_moves = vec![(0, 2), (2, 0)];
-        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
-
-        let valid_moves = TicTacToeGame::valid_moves_in_square(0b011_010_001);
-        let expected_moves = vec![(0, 0), (1, 0), (1, 2), (2, 0), (2, 1)];
-        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
-
-        let valid_moves = TicTacToeGame::valid_moves_in_square(0b000_110_000);
-        let expected_moves = vec![(0, 0), (0, 1), (0, 2), (1, 2), (2, 0), (2, 1), (2, 2)];
-        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
-
-        let valid_moves = TicTacToeGame::valid_moves_in_square(0b101_111_011);
-        let expected_moves = vec![(0, 1), (2, 0)];
-        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
-
-        let valid_moves = TicTacToeGame::valid_moves_in_square(0b100_000_110);
-        let expected_moves = vec![(0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 2)];
-        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
-
-        let valid_moves = TicTacToeGame::valid_moves_in_square(0b000_000_000);
-        let expected_moves = vec![
-            (0, 0),
-            (0, 1),
-            (0, 2),
-            (1, 0),
-            (1, 1),
-            (1, 2),
-            (2, 0),
-            (2, 1),
-            (2, 2),
-        ];
-        assert!(expected_moves.iter().all(|m| valid_moves.get().contains(m)));
-
-        let valid_moves = TicTacToeGame::valid_moves_in_square(0b111_111_111);
-        assert_eq!(valid_moves.N, 0)
-    }
-
-    #[test]
-    fn test_valid_moves() {
-        fn place_move(p_board: &mut [u16; 9], cell: (u8, u8)) {
-            let square = TicTacToeGame::square_of_cell(cell);
-            let cell33 = TicTacToeGame::cell99_to_cell33(cell);
-            let sq_idx: usize = (square.0 * 3 + square.1) as usize;
-            p_board[sq_idx] = TicTacToeGame::set_bit(p_board[sq_idx], cell33.0, cell33.1);
-        }
-
-        //
-        let mut p_boards = [[0b000_000_000; 9]; 2];
-        let mut locked_squares = 0b000_000_000;
-        let mut last_move: Option<(u8, u8)> = None;
-
-        let expected_moves: Vec<(u8, u8)> = iproduct!(0..9, 0..9).collect();
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (5, 7));
-        place_move(&mut p_boards[1], (6, 4));
-        locked_squares = 0b000_000_000;
-        last_move = Some((6, 4));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (2, 3),
-            (2, 5),
-            (2, 4),
-            (0, 3),
-            (0, 4),
-            (1, 3),
-            (0, 5),
-            (1, 5),
-            (1, 4),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (2, 5));
-        place_move(&mut p_boards[1], (8, 7));
-        locked_squares = 0b000_000_000;
-        last_move = Some((8, 7));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (8, 5),
-            (7, 3),
-            (7, 5),
-            (6, 5),
-            (7, 4),
-            (6, 3),
-            (8, 3),
-            (8, 4),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (8, 4));
-        place_move(&mut p_boards[1], (7, 4));
-        locked_squares = 0b000_000_000;
-        last_move = Some((7, 4));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (4, 3),
-            (4, 4),
-            (5, 5),
-            (5, 3),
-            (3, 3),
-            (3, 4),
-            (5, 4),
-            (4, 5),
-            (3, 5),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (4, 5));
-        place_move(&mut p_boards[1], (3, 8));
-        locked_squares = 0b000_000_000;
-        last_move = Some((3, 8));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (1, 8),
-            (0, 7),
-            (2, 6),
-            (2, 8),
-            (1, 7),
-            (1, 6),
-            (2, 7),
-            (0, 6),
-            (0, 8),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (1, 8));
-        place_move(&mut p_boards[1], (3, 7));
-        locked_squares = 0b000_000_000;
-        last_move = Some((3, 7));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (1, 3),
-            (2, 3),
-            (0, 5),
-            (1, 5),
-            (0, 4),
-            (2, 4),
-            (0, 3),
-            (1, 4),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (0, 3));
-        place_move(&mut p_boards[1], (2, 1));
-        locked_squares = 0b000_000_000;
-        last_move = Some((2, 1));
-
-        let expected_moves: Vec<(u8, u8)> = vec![(8, 5), (7, 3), (6, 3), (8, 3), (6, 5), (7, 5)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (7, 3));
-        place_move(&mut p_boards[1], (3, 1));
-        locked_squares = 0b000_000_000;
-        last_move = Some((3, 1));
-
-        let expected_moves: Vec<(u8, u8)> =
-            vec![(0, 5), (0, 4), (2, 4), (2, 3), (1, 5), (1, 3), (1, 4)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (0, 4));
-        place_move(&mut p_boards[1], (0, 5));
-        locked_squares = 0b000_000_000;
-        last_move = Some((0, 5));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (1, 6),
-            (0, 8),
-            (0, 7),
-            (2, 7),
-            (1, 7),
-            (2, 8),
-            (0, 6),
-            (2, 6),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (2, 6));
-        place_move(&mut p_boards[1], (7, 1));
-        locked_squares = 0b000_000_000;
-        last_move = Some((7, 1));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (4, 4),
-            (3, 4),
-            (5, 4),
-            (3, 3),
-            (3, 5),
-            (4, 3),
-            (5, 5),
-            (5, 3),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (4, 4));
-        place_move(&mut p_boards[1], (3, 4));
-        locked_squares = 0b000_000_000;
-        last_move = Some((3, 4));
-
-        let expected_moves: Vec<(u8, u8)> = vec![(2, 4), (1, 4), (1, 5), (1, 3), (2, 3)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (2, 4));
-        place_move(&mut p_boards[1], (6, 3));
-        locked_squares = 0b000_000_000;
-        last_move = Some((6, 3));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (0, 0),
-            (2, 0),
-            (0, 1),
-            (1, 1),
-            (0, 2),
-            (1, 0),
-            (2, 2),
-            (1, 2),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (1, 1));
-        place_move(&mut p_boards[1], (3, 5));
-        locked_squares = 0b000_000_000;
-        last_move = Some((3, 5));
-
-        let expected_moves: Vec<(u8, u8)> =
-            vec![(0, 8), (1, 6), (1, 7), (2, 8), (2, 7), (0, 7), (0, 6)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (0, 8));
-        place_move(&mut p_boards[1], (1, 6));
-        locked_squares = 0b000_000_000;
-        last_move = Some((1, 6));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (4, 1),
-            (5, 0),
-            (4, 0),
-            (3, 2),
-            (3, 0),
-            (5, 1),
-            (4, 2),
-            (5, 2),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (5, 0));
-        place_move(&mut p_boards[1], (6, 1));
-        locked_squares = 0b000_000_000;
-        last_move = Some((6, 1));
-
-        let expected_moves: Vec<(u8, u8)> = vec![(2, 3), (1, 4), (1, 5), (1, 3)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (1, 4));
-        place_move(&mut p_boards[1], (3, 3));
-        locked_squares = 0b010010000;
-        last_move = Some((3, 3));
-
-        let expected_moves: Vec<(u8, u8)> =
-            vec![(0, 0), (0, 1), (1, 2), (0, 2), (1, 0), (2, 0), (2, 2)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (0, 1));
-        place_move(&mut p_boards[1], (8, 1));
-        locked_squares = 0b010010100;
-        last_move = Some((8, 1));
-
-        let expected_moves: Vec<(u8, u8)> = vec![(6, 5), (7, 5), (8, 3), (8, 5)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (6, 5));
-        place_move(&mut p_boards[1], (1, 7));
-        locked_squares = 0b010010100;
-        last_move = Some((1, 7));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (5, 6),
-            (2, 2),
-            (5, 8),
-            (7, 7),
-            (0, 2),
-            (4, 7),
-            (7, 5),
-            (5, 2),
-            (2, 0),
-            (0, 7),
-            (0, 6),
-            (6, 8),
-            (3, 6),
-            (4, 1),
-            (6, 6),
-            (2, 8),
-            (3, 2),
-            (7, 6),
-            (3, 0),
-            (8, 3),
-            (8, 6),
-            (4, 2),
-            (8, 8),
-            (2, 7),
-            (4, 0),
-            (1, 2),
-            (5, 1),
-            (7, 8),
-            (1, 0),
-            (0, 0),
-            (6, 7),
-            (8, 5),
-            (4, 6),
-            (4, 8),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (8, 5));
-        place_move(&mut p_boards[1], (6, 7));
-        locked_squares = 0b010010100;
-        last_move = Some((6, 7));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (7, 5),
-            (0, 7),
-            (2, 0),
-            (3, 6),
-            (7, 8),
-            (8, 3),
-            (3, 0),
-            (1, 0),
-            (2, 7),
-            (1, 2),
-            (5, 8),
-            (2, 2),
-            (4, 7),
-            (7, 6),
-            (8, 6),
-            (2, 8),
-            (0, 0),
-            (6, 6),
-            (5, 6),
-            (4, 1),
-            (0, 6),
-            (8, 8),
-            (0, 2),
-            (6, 8),
-            (4, 8),
-            (4, 0),
-            (7, 7),
-            (5, 2),
-            (3, 2),
-            (4, 6),
-            (5, 1),
-            (4, 2),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (5, 8));
-        place_move(&mut p_boards[1], (7, 7));
-        locked_squares = 0b010010101;
-        last_move = Some((7, 7));
-
-        let expected_moves: Vec<(u8, u8)> = vec![
-            (4, 1),
-            (0, 0),
-            (2, 2),
-            (0, 7),
-            (4, 8),
-            (0, 6),
-            (5, 2),
-            (7, 5),
-            (0, 2),
-            (4, 7),
-            (2, 0),
-            (5, 6),
-            (3, 2),
-            (5, 1),
-            (4, 6),
-            (3, 0),
-            (4, 2),
-            (2, 8),
-            (1, 0),
-            (4, 0),
-            (1, 2),
-            (2, 7),
-            (8, 3),
-            (3, 6),
-        ];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (4, 1));
-        place_move(&mut p_boards[1], (3, 6));
-        locked_squares = 0b010011101;
-        last_move = Some((3, 6));
-
-        let expected_moves: Vec<(u8, u8)> = vec![(2, 0), (0, 2), (1, 2), (1, 0), (2, 2), (0, 0)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-
-        //
-        place_move(&mut p_boards[0], (1, 0));
-        place_move(&mut p_boards[1], (3, 2));
-        locked_squares = 0b010011101;
-        last_move = Some((3, 2));
-
-        let expected_moves: Vec<(u8, u8)> = vec![(2, 8), (0, 6), (0, 7), (2, 7)];
-        let valid_moves = TicTacToeGame::valid_moves(&p_boards, locked_squares, last_move);
-        assert_vec_eq!(expected_moves, valid_moves.get());
-    }
-
-    #[test]
-    fn test_game_valid_moves_when_square_is_locked() {
-        let game = TicTacToeGame {
-            p_boards: [
-                [
-                    0b100_000_000,
-                    0b100_000_000,
-                    0,
-                    0,
-                    0b100_000_000,
-                    0,
-                    0,
-                    0b100_000_000,
-                    0,
-                ],
-                [0b010_010_010, 0, 0, 0, 0, 0, 0, 0, 0],
-            ],
-            p_squares: [0, 0b100_000_000],
-            locked_squares: 0b100_000_000,
-            active: true,
-            active_player: 1,
-            turn: 7,
-            last_move: Some((6, 3)),
-            last_move_result: Some(MoveResult::NormalMove),
-            winners: None,
-        };
-
-        let msg = game.turn().unwrap();
-        assert_eq!(msg.messages[1], "69");
-        assert_eq!(game.last_move_result, Some(MoveResult::NormalMove));
-    }
-
-    #[test]
-    fn test_game_lock_square_when_it_is_won() {
-        let mut game = TicTacToeGame::new();
-        game.play(String::from("0 0")); // Player 0
-        game.play(String::from("0 1")); // Player 1
-        game.play(String::from("0 3")); // Player 0
-        game.play(String::from("1 1")); // Player 1
-        game.play(String::from("3 3")); // Player 0
-        assert_eq!(game.locked_squares, 0b000_000_000);
-
-        game.play(String::from("2 1")); // Player 1
-
-        assert_eq!(game.p_squares, [0, 0b100_000_000]);
-        assert_eq!(game.locked_squares, 0b100_000_000);
-
-        game.play(String::from("6 3")); // Player 0
-        let msg = game.turn().unwrap();
-        assert_eq!(msg.messages[1], "69");
-    }
-
-    #[test]
-    fn test_game_1() {
-        let mut game = TicTacToeGame::new();
-        game.play(String::from("7 3")); // Player 0
-        assert_eq!(game.last_move, Some((7, 3)));
-        assert_eq!(game.p_boards[0][7], 0b000_100_000);
+    fn test_square_of_move81() {
+        assert_eq!(TicTacToeGame::square_of_move81((0, 0)),0b111111111_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((0, 4)),0b000000000_111111111_000000000_000000000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((0, 8)),0b000000000_000000000_111111111_000000000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((2, 6)),0b000000000_000000000_111111111_000000000_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((4, 1)),0b000000000_000000000_000000000_111111111_000000000_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((5, 3)),0b000000000_000000000_000000000_000000000_111111111_000000000_000000000_000000000_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((6, 8)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_111111111);
+        assert_eq!(TicTacToeGame::square_of_move81((7, 0)),0b000000000_000000000_000000000_000000000_000000000_000000000_111111111_000000000_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((7, 6)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_111111111);
+        assert_eq!(TicTacToeGame::square_of_move81((8, 0)),0b000000000_000000000_000000000_000000000_000000000_000000000_111111111_000000000_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((8, 3)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_111111111_000000000);
+        assert_eq!(TicTacToeGame::square_of_move81((8, 8)),0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_111111111);
     }
 }
