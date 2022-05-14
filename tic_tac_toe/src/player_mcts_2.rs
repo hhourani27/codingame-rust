@@ -26,7 +26,7 @@ mod game {
 
     use super::StackVector;
 
-    pub type Move = (u8, u8);
+    pub type Move = u128;
     // Max # of legal moves
     pub const MAX_NB_MOVES: usize = 81;
 
@@ -40,73 +40,66 @@ mod game {
         [pid] => [u16,u16,u16,u16,u16,u16,u16,u16,u16] (9 squares)
             Each u16 correspond to a 9-bit representation of a square.
         */
-        p_boards: [[u16; 9]; 2],
+        p_boards: [u128; 2],
         // A 2D array : [player_id] => 8-bit number representing which squares are won by a player
-        p_squares: [u16; 2],
+        p_squares: [u128; 2],
         // represent which squares are locked
-        locked_squares: u16,
+        locked_squares: u128,
 
         active: bool,
         active_player: u8, // player who's turn is to do the next move
         turn: u8,
 
-        last_move: Option<(u8, u8)>,
+        last_move: u128,
         winners: Option<(WinLossTie, WinLossTie)>,
     }
 
     pub fn new() -> State {
         State {
-            p_boards: [[0b000_000_000; 9]; 2],
-            p_squares: [0b000_000_000; 2],
-            locked_squares: 0b000_000_000,
+            p_boards: [0; 2],
+            p_squares: [0; 2],
+            locked_squares: 0,
 
             active: true,
             active_player: 0,
             turn: 0,
 
-            last_move: None,
+            last_move: 0,
             winners: None,
         }
     }
 
-    pub fn update_state(state: &mut State, player: u8, move_: (u8, u8)) {
+    pub fn update_state(state: &mut State, player: u8, move_: Move) {
         /*
             Update the state with the move done by the player.
             Assume that it's the player's turn and the move is always legal
         */
 
         // (1) Place move on board
-        let square = square_of_cell(move_);
-        let (row33, col33) = cell99_to_cell33(move_);
-        let sq_idx: usize = (square.0 * 3 + square.1) as usize;
+        let square81 = square_of_move81(move_);
 
-        state.p_boards[player as usize][sq_idx] =
-            set_bit(state.p_boards[player as usize][sq_idx], row33, col33);
+        state.p_boards[player as usize] |= move_;
 
         // (2) Check if the player won the square
-        let p_square = state.p_boards[player as usize][sq_idx];
-        if is_won(p_square) {
+        if won_the_square(state.p_boards[player as usize], square81) {
             // Update the player's square status
-            state.p_squares[player as usize] =
-                set_bit(state.p_squares[player as usize], square.0, square.1);
-
+            state.p_squares[player as usize] |= square81;
             // Update the locked square status
-            state.locked_squares = set_bit(state.locked_squares, square.0, square.1);
+            state.locked_squares |= square81;
         }
-        // (3) If the player didn't win the square, check if it's filled
-        else if state.p_boards[0][sq_idx] | state.p_boards[1][sq_idx] == 0b111_111_111 {
-            state.locked_squares = set_bit(state.locked_squares, square.0, square.1);
+        // (3.3) If the player didn't win the square, check if it's filled
+        else if (state.p_boards[0] | state.p_boards[1]) & square81 == square81 {
+            state.locked_squares |= square81;
         }
-
-        // (4) Check if it's a winning move or a tie
-        if is_won(state.p_squares[player as usize]) {
+        // (4) Check if it's a global winning move or a tie
+        if won_the_board(state.p_squares[player as usize]) {
             state.active = false;
             state.winners = if player == 0 {
                 Some((WinLossTie::Win, WinLossTie::Loss))
             } else {
                 Some((WinLossTie::Loss, WinLossTie::Win))
             }
-        } else if state.locked_squares == 0b111_111_111 {
+        } else if state.locked_squares == 0b111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111 {
             state.active = false;
             let won_squares = [
                 state.p_squares[0].count_ones(),
@@ -122,7 +115,7 @@ mod game {
         }
 
         state.turn += 1;
-        state.last_move = Some(move_);
+        state.last_move = move_;
 
         if state.active == true {
             state.active_player = (state.active_player + 1) % 2;
@@ -142,59 +135,46 @@ mod game {
         }
     }
 
-    pub fn valid_moves(state: &State) -> (u8, StackVector<(u8, u8), 81>) {
+    pub fn valid_moves(state: &State) -> (u8, StackVector<Move, 81>) {
         let p_boards = &state.p_boards;
         let locked_squares = state.locked_squares;
         let last_move = state.last_move;
 
-        // (1) Determine valid squares
-        let valid_squares: u16 = match last_move {
-            // If it's the first move, all squares are valid
-            None => 0b111_111_111,
-            // Else, check the last move
-            Some(m) => {
-                // Get the square referred to by the cell move
-                let sq = cell99_to_cell33(m);
-                if get_bit(locked_squares, sq.0, sq.1) == 0 {
-                    // If the square is not locked, only one square is valid
-                    0b1 << (2 - sq.0) * 3 + (2 - sq.1)
-                } else {
-                    // if square is locked, all non-locked squares are valid
-                    !locked_squares
+        // (1) Determine valid moves
+        let valid_moves81 = (!(p_boards[0] | p_boards[1] | locked_squares)) & 0b111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111;
+
+        let valid_moves81 = match last_move {
+            0 => valid_moves81,
+            _ => {
+                let next_square = square_pointed_by_move81(last_move);
+
+                // If next_square is not a locked square
+                if next_square & locked_squares == 0 {
+                    valid_moves81 & next_square 
                 }
+                else {
+                    valid_moves81
+                }        
             }
         };
 
-        // (2) For each valid square add list of valid moves
-        let mut valid_moves: StackVector<(u8, u8), 81> = StackVector {
-            arr: [(0, 0); 81],
+        // (2) Transform the move mask to an array of moves
+        let mut valid_moves_vec: StackVector<Move, 81> = StackVector {
+            arr: [0; 81],
             len: 0,
         };
 
-        for (r, c) in [
-            (0, 0),
-            (0, 1),
-            (0, 2),
-            (1, 0),
-            (1, 1),
-            (1, 2),
-            (2, 0),
-            (2, 1),
-            (2, 2),
-        ] {
-            if get_bit(valid_squares, r, c) == 1 {
-                let sq_ix = (r * 3 + c) as usize;
-                let valid_moves_in_square =
-                    valid_moves_in_square(p_boards[0][sq_ix] | p_boards[1][sq_ix]);
-
-                for m_sq in valid_moves_in_square.get() {
-                    valid_moves.add(cell33_to_cell99(*m_sq, (r, c)));
-                }
+        let mut m = 0b1;
+        for _ in 0..81 {
+            if valid_moves81 & m > 0 {
+                valid_moves_vec.add(m);
             }
+            m <<= 1;
         }
 
-        (state.active_player, valid_moves)
+        (state.active_player, valid_moves_vec)
     }
+
 
     /* #region(collapsed) [Private game functions] */
     #[derive(Clone, Debug)]
@@ -204,73 +184,183 @@ mod game {
         Tie,
     }
 
-    /*
-        For a 9-bit representation of a square, return empty cells (0..2, 0..2)
-    */
-    fn valid_moves_in_square(square_bin: u16) -> StackVector<(u8, u8), 9> {
-        let mut valid_moves: StackVector<(u8, u8), 9> = StackVector {
-            arr: [(0, 0); 9],
-            len: 0,
-        };
-        let sq = square_bin;
-        for sh in 0..9 {
-            if (sq >> sh) & 0b1 == 0 {
-                valid_moves.add(((8 - sh) / 3, (8 - sh) % 3));
-            }
+    fn square_of_move81(move_: u128) -> u128 {
+        match move_ {
+            1208925819614629174706176
+            | 604462909807314587353088
+            | 302231454903657293676544
+            | 151115727451828646838272
+            | 75557863725914323419136
+            | 37778931862957161709568
+            | 18889465931478580854784
+            | 9444732965739290427392
+            | 4722366482869645213696 => 2413129272746388704198656,
+            2361183241434822606848
+            | 1180591620717411303424
+            | 590295810358705651712
+            | 295147905179352825856
+            | 147573952589676412928
+            | 73786976294838206464
+            | 36893488147419103232
+            | 18446744073709551616
+            | 9223372036854775808 => 4713143110832790437888,
+            4611686018427387904 | 2305843009213693952 | 1152921504606846976
+            | 576460752303423488 | 288230376151711744 | 144115188075855872 | 72057594037927936
+            | 36028797018963968 | 18014398509481984 => 9205357638345293824,
+            9007199254740992 | 4503599627370496 | 2251799813685248 | 1125899906842624
+            | 562949953421312 | 281474976710656 | 140737488355328 | 70368744177664
+            | 35184372088832 => 17979214137393152,
+            17592186044416 | 8796093022208 | 4398046511104 | 2199023255552 | 1099511627776
+            | 549755813888 | 274877906944 | 137438953472 | 68719476736 => 35115652612096,
+            34359738368 | 17179869184 | 8589934592 | 4294967296 | 2147483648 | 1073741824
+            | 536870912 | 268435456 | 134217728 => 68585259008,
+            67108864 | 33554432 | 16777216 | 8388608 | 4194304 | 2097152 | 1048576 | 524288
+            | 262144 => 133955584,
+            131072 | 65536 | 32768 | 16384 | 8192 | 4096 | 2048 | 1024 | 512 => 261632,
+            256 | 128 | 64 | 32 | 16 | 8 | 4 | 2 | 1 => 511,
+            _ => panic!(),
         }
-        valid_moves
     }
 
-    /*
-    Get the square position (0..2, 0..2) where a cell (0..8, 0..8) is located
-    */
-    fn square_of_cell(cell: (u8, u8)) -> (u8, u8) {
-        (cell.0 / 3, cell.1 / 3)
+    fn square_pointed_by_move81(move_: u128) -> u128 {
+        match move_{
+            1208925819614629174706176 | 2361183241434822606848 | 4611686018427387904 | 9007199254740992 | 17592186044416 | 34359738368 | 67108864 | 131072 | 256 => 2413129272746388704198656,
+            604462909807314587353088 | 1180591620717411303424 | 2305843009213693952 | 4503599627370496 | 8796093022208 | 17179869184 | 33554432 | 65536 | 128 => 4713143110832790437888,
+            302231454903657293676544 | 590295810358705651712 | 1152921504606846976 | 2251799813685248 | 4398046511104 | 8589934592 | 16777216 | 32768 | 64 => 9205357638345293824,
+            151115727451828646838272 | 295147905179352825856 | 576460752303423488 | 1125899906842624 | 2199023255552 | 4294967296 | 8388608 | 16384 | 32 => 17979214137393152,
+            75557863725914323419136 | 147573952589676412928 | 288230376151711744 | 562949953421312 | 1099511627776 | 2147483648 | 4194304 | 8192 | 16 => 35115652612096,
+            37778931862957161709568 | 73786976294838206464 | 144115188075855872 | 281474976710656 | 549755813888 | 1073741824 | 2097152 | 4096 | 8 => 68585259008,
+            18889465931478580854784 | 36893488147419103232 | 72057594037927936 | 140737488355328 | 274877906944 | 536870912 | 1048576 | 2048 | 4 => 133955584,
+            9444732965739290427392 | 18446744073709551616 | 36028797018963968 | 70368744177664 | 137438953472 | 268435456 | 524288 | 1024 | 2 => 261632,
+            4722366482869645213696 | 9223372036854775808 | 18014398509481984 | 35184372088832 | 68719476736 | 134217728 | 262144 | 512 | 1 => 511,
+            _ => panic!()
+        }
     }
 
-    /*
-    Convert a cell position in a 9x9 board to a cell position in a 3x3 square
-    */
-    fn cell99_to_cell33(cell: (u8, u8)) -> (u8, u8) {
-        (cell.0 % 3, cell.1 % 3)
-    }
+    fn won_the_square(p_board81:u128, square81:u128) -> bool {
 
-    /*
-    Convert a cell position in a 3x3 square to a cell position in a 9x9 board
-    */
-    fn cell33_to_cell99(cell: (u8, u8), square: (u8, u8)) -> (u8, u8) {
-        (cell.0 + square.0 * 3, cell.1 + square.1 * 3)
-    }
+        let sq_idx = match square81 {
+            2413129272746388704198656 => 0,
+            4713143110832790437888 => 1,
+            9205357638345293824 => 2,
+            17979214137393152 => 3,
+            35115652612096 => 4,
+            68585259008 => 5,
+            133955584 => 6,
+            261632 => 7,
+            511 => 8,
+            _ => panic!()
+        };
 
-    /*
-    From a 9-bit representation of a board or square, get the bit referred to by the row & col
-    */
-    fn get_bit(bit_9: u16, row: u8, col: u8) -> u8 {
-        ((bit_9 >> (2 - row) * 3 + (2 - col)) & 0b1) as u8
-    }
+        const ALL_WINNING_CONFIGURATIONS: [[u128; 8]; 9] = [
+        [0b111000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000111000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000111_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b100100100_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b010010010_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b001001001_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b100010001_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b001010100_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000],
+        
+        [0b000000000_111000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000111000_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000111_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_100100100_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_010010010_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_001001001_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_100010001_000000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_001010100_000000000_000000000_000000000_000000000_000000000_000000000_000000000],
+        
+        [0b000000000_000000000_111000000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000111000_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000111_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_100100100_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_010010010_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_001001001_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_100010001_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_001010100_000000000_000000000_000000000_000000000_000000000_000000000],
 
-    fn set_bit(bit_9: u16, row: u8, col: u8) -> u16 {
-        (0b1 << ((2 - row) * 3 + (2 - col))) | bit_9
-    }
+        [0b000000000_000000000_000000000_111000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000111000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000111_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_100100100_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_010010010_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_001001001_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_100010001_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_001010100_000000000_000000000_000000000_000000000_000000000,],
 
-    fn is_won(bit_9: u16) -> bool {
-        let winning_configurations: [u16; 8] = [
-            0b111000000,
-            0b000111000,
-            0b000000111,
-            0b100100100,
-            0b010010010,
-            0b001001001,
-            0b100010001,
-            0b001010100,
+        [0b000000000_000000000_000000000_000000000_111000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000111000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000111_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_100100100_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_010010010_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_001001001_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_100010001_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_001010100_000000000_000000000_000000000_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_000000000_111000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000111000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000111_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_100100100_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_010010010_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_001001001_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_100010001_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_001010100_000000000_000000000_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_000000000_000000000_111000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000111000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000111_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_100100100_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_010010010_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_001001001_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_100010001_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_001010100_000000000_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_111000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000111000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000111_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_100100100_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_010010010_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_001001001_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_100010001_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_001010100_000000000,],
+
+        [0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_111000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000111000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000111,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_100100100,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_010010010,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_001001001,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_100010001,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_000000000_000000000_001010100,]
         ];
 
+        let winning_configurations = ALL_WINNING_CONFIGURATIONS[sq_idx as usize];
+
         for wc in winning_configurations {
-            if bit_9 & wc == wc {
+            if p_board81 & wc == wc {
                 return true;
             }
         }
-        false
+        false    
+    }
+
+    fn won_the_board(p_squares81:u128) -> bool {
+        const WINNING_CONFIGURATIONS :[u128;8] = [0b111111111_111111111_111111111_000000000_000000000_000000000_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_111111111_111111111_111111111_000000000_000000000_000000000,
+        0b000000000_000000000_000000000_000000000_000000000_000000000_111111111_111111111_111111111,
+        0b111111111_000000000_000000000_111111111_000000000_000000000_111111111_000000000_000000000,
+        0b000000000_111111111_000000000_000000000_111111111_000000000_000000000_111111111_000000000,
+        0b000000000_000000000_111111111_000000000_000000000_111111111_000000000_000000000_111111111,
+        0b111111111_000000000_000000000_000000000_111111111_000000000_000000000_000000000_111111111,
+        0b000000000_000000000_111111111_000000000_111111111_000000000_111111111_000000000_000000000];
+
+        for wc in WINNING_CONFIGURATIONS {
+            if p_squares81 & wc == wc {
+                return true;
+            }
+        }
+        false    
     }
 
     /* #endregion */
@@ -282,7 +372,7 @@ mod mcts {
     use rand::Rng;
     use std::time::Instant;
 
-    const MAX_NODE_COUNT: usize = 80_000;
+    const MAX_NODE_COUNT: usize = 30_000;
     const TIME_LIMIT_MS: u128 = 100;
 
     #[derive(Clone, Copy)]
@@ -367,12 +457,12 @@ mod mcts {
                 self.nb_simulations += 1;
             }
 
-            /*
+            
             eprintln!(
-                "[MCTS] End. Sending best move after expanding {} nodes and running {} simulations",
+                "[MCTS P2] End. Sending best move after expanding {} nodes and running {} simulations",
                 self.len, self.nb_simulations
             );
-            */
+            
 
             // When time is up, choose the move with the best score
             let mut max_score: f32 = -f32::INFINITY;
@@ -446,13 +536,17 @@ mod mcts {
                         //TODO: I'm choosing the first child with ucb=INF. Try to choose a bit more randomly
                         max_ucb_node_idx = c;
                         break;
-                    } else if child_ucb > max_ucb {
+                    } else if child_ucb >= max_ucb {
                         max_ucb = child_ucb;
                         max_ucb_node_idx = c;
                     }
                 }
 
                 node_idx = max_ucb_node_idx;
+                if node_idx == 0 {
+                    eprintln!("[MCTS P2] ERROR : node_idx == 0")
+                }
+
                 game::update_state(
                     state,
                     self.arr[node_idx].player.unwrap(),
@@ -538,6 +632,50 @@ mod mcts {
     }
 }
 
+mod conv {
+
+    use super::game;
+
+    pub fn movetuple_to_move81(move_: (u8, u8)) -> game::Move {
+        let (r, c) = (move_.0 % 3, move_.1 % 3);
+        let (sq_r, sq_c) = (move_.0 / 3, move_.1 / 3);
+
+        let bit = 0b1 << (((2 - sq_r) * 3 + (2 - sq_c)) * 9) + ((2 - r) * 3 + (2 - c));
+
+        bit
+    }
+
+    pub fn move81_to_movetuple(move_:game::Move) -> (u8,u8) {
+        let (mut sq_r, mut sq_c) = (0,0);
+        let (mut r,mut c) = (0,0);
+
+        for i in 0..81 {
+
+            let v =(move_ >> (80-i)) & 0b1;
+
+            if v == 1 {
+                return (r+sq_r*3,c+sq_c*3 )
+            }
+
+            c+=1;
+            if c == 3 {
+                c = 0;
+                r += 1;
+            }
+            if r == 3 {
+                r = 0;
+                sq_c += 1;
+            }
+            if sq_c == 3 {
+                sq_c = 0;
+                sq_r += 1;
+            }
+        }
+        
+        panic!();
+    }
+}
+
 #[allow(unused_variables, unused_assignments, unused_must_use)]
 pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
     let mut state = game::new();
@@ -559,14 +697,14 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
         input_line = msg_rcv.recv().unwrap();
         let valid_action_count = parse_input!(input_line, i32);
 
-        let mut valid_actions: Vec<(u8, u8)> = Vec::new();
+        let mut valid_actions: Vec<game::Move> = Vec::new();
         for i in 0..valid_action_count as usize {
             let mut input_line = String::new();
             input_line = msg_rcv.recv().unwrap();
             let inputs = input_line.split(" ").collect::<Vec<_>>();
             let row = parse_input!(inputs[0], u8);
             let col = parse_input!(inputs[1], u8);
-            valid_actions.push((row, col));
+            valid_actions.push(conv::movetuple_to_move81((row, col)));
         }
 
         //(2) Update my game state
@@ -579,7 +717,7 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
             game::update_state(
                 &mut state,
                 opp_pid,
-                (opponent_row as u8, opponent_col as u8),
+                conv::movetuple_to_move81((opponent_row as u8, opponent_col as u8)),
             );
         }
 
@@ -589,6 +727,8 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
         // (4) Update state with my action
         game::update_state(&mut state, my_pid, best_move);
 
+        // (5) Send the move
+        let best_move = conv::move81_to_movetuple(best_move);
         msg_snd.send(format!("{} {}", best_move.0, best_move.1));
     }
 }

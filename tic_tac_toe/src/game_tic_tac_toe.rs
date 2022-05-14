@@ -399,7 +399,6 @@ impl Game for TicTacToeGame {
 
         let pid = self.active_player;
 
-        //TODO MODIFY THIS
         // (2) Check if move is valid
         let valid_moves =
             TicTacToeGame::valid_moves(&self.p_boards, self.locked_squares, self.last_move);
