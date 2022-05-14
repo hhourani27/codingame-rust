@@ -3,7 +3,9 @@
 fn main() {
     use std::time::{Duration, Instant};
 
-    for i in 0..0 {
-        println!("{}", i);
+    let a = [1, 2, 3];
+
+    for i in a.iter() {
+        println!("{}", 0b1 << *i);
     }
 }

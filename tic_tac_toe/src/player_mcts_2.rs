@@ -25,7 +25,7 @@ impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
 mod game {
 
     use super::StackVector;
-    use rand::Rng;
+    use rand::prelude::SliceRandom;
 
     pub type Move = u128;
     // Max # of legal moves
@@ -33,6 +33,28 @@ mod game {
 
     // An array of Game Scores, assuming that there'll be always a maxium of 4 players
     pub type GameScore = [f32; 4];
+
+    pub struct Cache {
+        random_indices : Vec<[u8;81]>,
+        random_indices_i: usize
+    }
+
+    impl Cache {
+        pub fn new() -> Cache {
+            let mut random_indices : Vec<[u8;81]> = Vec::new();
+            for _ in 0..100_000 {
+                let mut arr:[u8;81] = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80];
+                arr.shuffle(&mut rand::thread_rng());
+                random_indices.push(arr);
+            }
+            
+        Cache {
+            random_indices,
+            random_indices_i:0
+        }
+        }
+
+    }
 
     #[derive(Clone, Debug)]
     pub struct State {
@@ -176,7 +198,7 @@ mod game {
         (state.active_player, valid_moves_vec)
     }
 
-    pub fn random_valid_move(state: &State) -> (u8, Move) {
+    pub fn random_valid_move(state: &State, cache: &mut Cache) -> (u8, Move) {
         let p_boards = &state.p_boards;
         let locked_squares = state.locked_squares;
         let last_move = state.last_move;
@@ -200,22 +222,14 @@ mod game {
         };
 
         // (2) Get a random valid move
-        let i:u8 = rand::thread_rng().gen_range(0..81);
+        let indices = &cache.random_indices[cache.random_indices_i];
+        cache.random_indices_i = (cache.random_indices_i +  1)%100_000;
 
-        let mut m:u128 = 0b1 << i;
-        for _ in i..81 {
+        for i in indices.iter() {
+            let m:u128 = 0b1 << i;
             if valid_moves81 & m > 0 {
                 return (state.active_player,m);
-            }
-            m <<= 1;
-        }
-
-        let mut m:u128 = 0b1;
-        for _ in 0..i {
-            if valid_moves81 & m > 0 {
-                return (state.active_player,m);
-            }
-            m <<= 1;
+            }        
         }
 
         panic!("Couldn't pick a random move");
@@ -474,6 +488,7 @@ mod mcts {
             root_state: &game::State,
             valid_moves: &Vec<game::Move>,
             player: u8,
+            cache: &mut game::Cache
         ) -> game::Move {
             /*
                 Find the best move
@@ -498,7 +513,7 @@ mod mcts {
                 let rollout_node_idx = self.expand(selected_node_idx, &mut state);
 
                 //eprintln!("[MCTS] Simulation");
-                let score = self.simulate(&mut state);
+                let score = self.simulate(&mut state, cache);
 
                 self.backpropagate(rollout_node_idx, score);
 
@@ -649,10 +664,10 @@ mod mcts {
             }
         }
 
-        fn simulate(&self, state: &mut game::State) -> game::GameScore {
+        fn simulate(&self, state: &mut game::State, cache: &mut game::Cache) -> game::GameScore {
             // Simulate the game until the end
             while !game::is_terminal(state) {
-                let (player, chosen_move) = game::random_valid_move(state);
+                let (player, chosen_move) = game::random_valid_move(state, cache);
 
                 game::update_state(state, player, chosen_move);
             }
@@ -728,6 +743,7 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
 
     // Prepare MCTS
     let mut mcts: mcts::MCTS = mcts::new();
+    let mut cache = game::Cache::new();
 
     while ctr_rcv.recv().unwrap() == true {
         // (1) Read inputs
@@ -766,7 +782,7 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
         }
 
         // (3) Determine the next best action
-        let best_move = mcts.best_move(&state, &valid_actions, my_pid);
+        let best_move = mcts.best_move(&state, &valid_actions, my_pid, &mut cache);
 
         // (4) Update state with my action
         game::update_state(&mut state, my_pid, best_move);
