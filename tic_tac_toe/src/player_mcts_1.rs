@@ -444,7 +444,7 @@ mod mcts {
                         //TODO: I'm choosing the first child with ucb=INF. Try to choose a bit more randomly
                         max_ucb_node_idx = c;
                         break;
-                    } else if child_ucb > max_ucb {
+                    } else if child_ucb >= max_ucb {
                         max_ucb = child_ucb;
                         max_ucb_node_idx = c;
                     }

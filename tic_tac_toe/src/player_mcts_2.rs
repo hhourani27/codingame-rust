@@ -420,7 +420,7 @@ mod mcts {
     use rand::Rng;
     use std::time::Instant;
 
-    const MAX_NODE_COUNT: usize = 30_000;
+    const MAX_NODE_COUNT: usize = 55_000;
     const TIME_LIMIT_MS: u128 = 100;
 
     #[derive(Clone, Copy)]
@@ -591,9 +591,6 @@ mod mcts {
                 }
 
                 node_idx = max_ucb_node_idx;
-                if node_idx == 0 {
-                    eprintln!("[MCTS P2] ERROR : node_idx == 0")
-                }
 
                 game::update_state(
                     state,
