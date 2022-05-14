@@ -25,6 +25,7 @@ impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
 mod game {
 
     use super::StackVector;
+    use rand::Rng;
 
     pub type Move = u128;
     // Max # of legal moves
@@ -174,6 +175,53 @@ mod game {
 
         (state.active_player, valid_moves_vec)
     }
+
+    pub fn random_valid_move(state: &State) -> (u8, Move) {
+        let p_boards = &state.p_boards;
+        let locked_squares = state.locked_squares;
+        let last_move = state.last_move;
+
+        // (1) Determine valid moves
+        let valid_moves81 = (!(p_boards[0] | p_boards[1] | locked_squares)) & 0b111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111;
+
+        let valid_moves81 = match last_move {
+            0 => valid_moves81,
+            _ => {
+                let next_square = square_pointed_by_move81(last_move);
+
+                // If next_square is not a locked square
+                if next_square & locked_squares == 0 {
+                    valid_moves81 & next_square 
+                }
+                else {
+                    valid_moves81
+                }        
+            }
+        };
+
+        // (2) Get a random valid move
+        let i:u8 = rand::thread_rng().gen_range(0..81);
+
+        let mut m:u128 = 0b1 << i;
+        for _ in i..81 {
+            if valid_moves81 & m > 0 {
+                return (state.active_player,m);
+            }
+            m <<= 1;
+        }
+
+        let mut m:u128 = 0b1;
+        for _ in 0..i {
+            if valid_moves81 & m > 0 {
+                return (state.active_player,m);
+            }
+            m <<= 1;
+        }
+
+        panic!("Couldn't pick a random move");
+
+    }
+
 
 
     /* #region(collapsed) [Private game functions] */
@@ -607,8 +655,7 @@ mod mcts {
         fn simulate(&self, state: &mut game::State) -> game::GameScore {
             // Simulate the game until the end
             while !game::is_terminal(state) {
-                let (player, valid_moves) = game::valid_moves(state);
-                let chosen_move = valid_moves.arr[rand::thread_rng().gen_range(0..valid_moves.len)];
+                let (player, chosen_move) = game::random_valid_move(state);
 
                 game::update_state(state, player, chosen_move);
             }
