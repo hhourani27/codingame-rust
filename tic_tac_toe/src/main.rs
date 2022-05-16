@@ -17,7 +17,7 @@ fn main() {
     const RUNS: u32 = 50;
 
     let players: Vec<&'static (dyn Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Sync)> =
-        vec![&player_mcts_2::play, &player_mcts_1::play];
+        vec![&player_mcts_3::play, &player_mcts_2::play];
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/tic_tac_toe/output";
 

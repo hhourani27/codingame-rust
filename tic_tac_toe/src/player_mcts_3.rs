@@ -434,7 +434,7 @@ mod mcts {
     use rand::Rng;
     use std::time::Instant;
 
-    const MAX_NODE_COUNT: usize = 55_000;
+    const MAX_NODE_COUNT: usize = 300_000;
     const TIME_LIMIT_MS: u128 = 100;
 
     #[derive(Clone, Copy)]
@@ -469,14 +469,14 @@ mod mcts {
     }
 
     pub struct MCTS {
-        arr: [Node; MAX_NODE_COUNT],
+        arr: Vec<Node>,
         len: usize,
         nb_simulations: u32,
     }
 
     pub fn new() -> MCTS {
         MCTS {
-            arr: [Default::default(); MAX_NODE_COUNT],
+            arr: vec![Default::default(); MAX_NODE_COUNT],
             len: 0,
             nb_simulations: 0,
         }
@@ -522,8 +522,8 @@ mod mcts {
 
             
             eprintln!(
-                "[MCTS P2] End. Sending best move after expanding {} nodes and running {} simulations",
-                self.len, self.nb_simulations
+                "[MCTS P3] End. Sending best move after expanding {} nodes and running {} simulations in {:?}",
+                self.len, self.nb_simulations, start.elapsed()
             );
             
 
