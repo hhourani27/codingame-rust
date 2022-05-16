@@ -104,38 +104,43 @@ mod game {
         state.p_boards[player as usize] |= move_;
 
         // (2) Check if the player won the square
+        let mut a_square_was_filled = false;
         if won_the_square(state.p_boards[player as usize], square81) {
             // Update the player's square status
             state.p_squares[player as usize] |= square81;
             // Update the locked square status
             state.locked_squares |= square81;
+            a_square_was_filled = true;
         }
         // (3.3) If the player didn't win the square, check if it's filled
         else if (state.p_boards[0] | state.p_boards[1]) & square81 == square81 {
             state.locked_squares |= square81;
+            a_square_was_filled = true;
         }
         // (4) Check if it's a global winning move or a tie
-        if won_the_board(state.p_squares[player as usize]) {
-            state.active = false;
-            state.winners = if player == 0 {
-                Some((WinLossTie::Win, WinLossTie::Loss))
-            } else {
-                Some((WinLossTie::Loss, WinLossTie::Win))
+        if a_square_was_filled == true {
+            if won_the_board(state.p_squares[player as usize]) {
+                state.active = false;
+                state.winners = if player == 0 {
+                    Some((WinLossTie::Win, WinLossTie::Loss))
+                } else {
+                    Some((WinLossTie::Loss, WinLossTie::Win))
+                }
+            } else if state.locked_squares == 0b111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111 {
+                state.active = false;
+                let won_squares = [
+                    state.p_squares[0].count_ones(),
+                    state.p_squares[1].count_ones(),
+                ];
+                if won_squares[0] > won_squares[1] {
+                    state.winners = Some((WinLossTie::Win, WinLossTie::Loss));
+                } else if won_squares[0] < won_squares[1] {
+                    state.winners = Some((WinLossTie::Loss, WinLossTie::Win));
+                } else {
+                    state.winners = Some((WinLossTie::Tie, WinLossTie::Tie));
+                }
             }
-        } else if state.locked_squares == 0b111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111_111111111 {
-            state.active = false;
-            let won_squares = [
-                state.p_squares[0].count_ones(),
-                state.p_squares[1].count_ones(),
-            ];
-            if won_squares[0] > won_squares[1] {
-                state.winners = Some((WinLossTie::Win, WinLossTie::Loss));
-            } else if won_squares[0] < won_squares[1] {
-                state.winners = Some((WinLossTie::Loss, WinLossTie::Win));
-            } else {
-                state.winners = Some((WinLossTie::Tie, WinLossTie::Tie));
-            }
-        }
+     }
 
         state.turn += 1;
         state.last_move = move_;
@@ -522,7 +527,7 @@ mod mcts {
 
             
             eprintln!(
-                "[MCTS P3] End. Sending best move after expanding {} nodes and running {} simulations in {:?}",
+                "[MCTS P4] End. Sending best move after expanding {} nodes and running {} simulations in {:?}",
                 self.len, self.nb_simulations, start.elapsed()
             );
             
