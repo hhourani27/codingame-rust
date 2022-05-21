@@ -1,7 +1,6 @@
 mod game_tic_tac_toe;
 use game_tic_tac_toe::TicTacToeGame;
-mod player_mcts_5;
-mod player_mcts_6;
+mod player_mcts_6_param;
 mod player_random;
 use common::simulator;
 use common::Game;
@@ -14,10 +13,10 @@ use std::time::Instant;
 fn main() {
     const STATS: bool = true;
     const RECORD: bool = false;
-    const RUNS: u32 = 50;
+    const RUNS: u32 = 1;
 
     let players: Vec<&'static (dyn Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Sync)> =
-        vec![&player_mcts_6::play, &player_mcts_5::play];
+        vec![&player_mcts_6_param::play, &player_random::play];
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/tic_tac_toe/output";
 
