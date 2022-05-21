@@ -21,15 +21,20 @@ impl RunStatistics {
     }
 }
 
+#[derive(Clone)]
+pub struct PlayerPlayFunction {
+    pub func: &'static (dyn Fn(
+        Receiver<bool>,
+        Receiver<String>,
+        Sender<String>,
+        Option<HashMap<String, String>>,
+    ) + Sync),
+    pub params: Option<HashMap<String, String>>,
+}
+
 fn run_single(
     game: &mut impl Game,
-    players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>, Option<HashMap<String, String>>)
-            + Send
-            + Copy
-            + 'static,
-    >,
-    players_param: &Option<Vec<HashMap<String, String>>>,
+    players: &Vec<PlayerPlayFunction>,
     game_id: u32,
     record_game: bool,
 ) -> Option<record::GameRun> {
@@ -55,14 +60,8 @@ fn run_single(
         ps_message_receivers.push(ps_message_receiver);
         sp_control_senders.push(sp_control_sender);
 
-        // Extract player params
-        let p_params = match players_param {
-            None => None,
-            Some(p) => Some(p[pid].clone()),
-        };
-
-        // Start player thread
-        let player_func = players[pid];
+        let player_func = players[pid].func;
+        let player_params = players[pid].params.clone();
 
         let th = thread::Builder::new()
             .stack_size(8 * 1024 * 1024)
@@ -71,7 +70,7 @@ fn run_single(
                     sp_control_receiver,
                     sp_message_receiver,
                     ps_message_sender,
-                    p_params,
+                    player_params,
                 )
             })
             .unwrap();
@@ -155,13 +154,7 @@ fn run_single(
 
 pub fn run<GC, G>(
     game_constr: GC,
-    players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>, Option<HashMap<String, String>>)
-            + Send
-            + Copy
-            + 'static,
-    >,
-    players_param: &Option<Vec<HashMap<String, String>>>,
+    players: &Vec<PlayerPlayFunction>,
     nb_runs: u32,
     record_path: Option<String>,
     return_stats: bool,
@@ -184,7 +177,7 @@ where
 
     for i in 0..nb_runs {
         let mut game = game_constr();
-        let run_record = run_single(&mut game, players, players_param, i, record_game);
+        let run_record = run_single(&mut game, players, i, record_game);
 
         // [RECORD] After run is over, record run
         if record_game == true {
@@ -224,13 +217,7 @@ where
 
 pub fn run_permut<GC, G>(
     game_constr: GC,
-    players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>, Option<HashMap<String, String>>)
-            + Send
-            + Copy
-            + 'static,
-    >,
-    players_param: &Option<Vec<HashMap<String, String>>>,
+    players: &Vec<PlayerPlayFunction>,
     nb_runs: u32,
     record_path: Option<String>,
     return_stats: bool,
@@ -247,12 +234,11 @@ where
     for perm in player_ids.iter().permutations(player_count) {
         let mut perm_players = Vec::new();
         for p in &perm {
-            perm_players.push(players[**p]);
+            perm_players.push(players[**p].clone());
         }
         let result = run(
             &game_constr,
             &perm_players,
-            players_param,
             nb_runs,
             record_path.clone(),
             return_stats,

@@ -2,6 +2,7 @@ mod game_tic_tac_toe;
 use game_tic_tac_toe::TicTacToeGame;
 mod player_mcts_6_param;
 use common::simulator;
+use common::simulator::PlayerPlayFunction;
 use common::Game;
 use std::collections::HashMap;
 
@@ -13,37 +14,35 @@ use std::time::Instant;
 fn main() {
     const STATS: bool = true;
     const RECORD: bool = false;
-    const RUNS: u32 = 1;
-
-    let players: Vec<
-        &'static (dyn Fn(
-            Receiver<bool>,
-            Receiver<String>,
-            Sender<String>,
-            Option<HashMap<String, String>>,
-        ) + Sync),
-    > = vec![&player_mcts_6_param::play, &player_mcts_6_param::play];
+    const RUNS: u32 = 2;
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/tic_tac_toe/output";
 
-    /* Player parameters */
-    let mut params: Vec<HashMap<String, String>> = Vec::new();
-    for _ in 0..2 {
-        let mut p_params: HashMap<String, String> = HashMap::new();
-        p_params.insert(String::from("Exploration coef"), String::from("0.4"));
-        p_params.insert(String::from("Win-Lose score"), String::from("1.0 0.0"));
+    let players: Vec<PlayerPlayFunction> = vec![
+        PlayerPlayFunction {
+            func: &player_mcts_6_param::play,
+            params: {
+                let mut p: HashMap<String, String> = HashMap::new();
+                p.insert(String::from("Exploration coef"), String::from("0.4"));
+                Some(p)
+            },
+        },
+        PlayerPlayFunction {
+            func: &player_mcts_6_param::play,
+            params: {
+                let mut p: HashMap<String, String> = HashMap::new();
+                p.insert(String::from("Exploration coef"), String::from("0.4"));
+                Some(p)
+            },
+        },
+    ];
 
-        params.push(p_params);
-    }
-    let params = Some(params);
-    /* End player parameters */
-
+    /* End prepare players */
     let start = Instant::now();
 
     let result = simulator::run_permut(
         TicTacToeGame::new,
         &players,
-        &params,
         RUNS,
         match RECORD {
             true => Some(record_path.to_string()),

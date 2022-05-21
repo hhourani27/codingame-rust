@@ -767,6 +767,7 @@ mod conv {
 #[allow(unused_variables, unused_assignments, unused_must_use)]
 pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>, params : Option<HashMap<String, String>>) {
 
+    eprintln!("Received Params: {:?}",params);
     let exploration_coef = params.unwrap().get("Exploration coef").unwrap().parse::<f32>().unwrap();
 
     let mut state = game::new();
