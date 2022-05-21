@@ -1,6 +1,7 @@
 use crate::{record, WinLossTie};
 use crate::{Game, Message};
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Error;
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -20,11 +21,20 @@ impl RunStatistics {
     }
 }
 
+#[derive(Clone)]
+pub struct PlayerPlayFunction {
+    pub func: &'static (dyn Fn(
+        Receiver<bool>,
+        Receiver<String>,
+        Sender<String>,
+        Option<HashMap<String, String>>,
+    ) + Sync),
+    pub params: Option<HashMap<String, String>>,
+}
+
 fn run_single(
     game: &mut impl Game,
-    players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Copy + 'static,
-    >,
+    players: &Vec<PlayerPlayFunction>,
     game_id: u32,
     record_game: bool,
 ) -> Option<record::GameRun> {
@@ -50,12 +60,19 @@ fn run_single(
         ps_message_receivers.push(ps_message_receiver);
         sp_control_senders.push(sp_control_sender);
 
-        // Start player thread
-        let player_func = players[pid];
+        let player_func = players[pid].func;
+        let player_params = players[pid].params.clone();
 
         let th = thread::Builder::new()
             .stack_size(8 * 1024 * 1024)
-            .spawn(move || player_func(sp_control_receiver, sp_message_receiver, ps_message_sender))
+            .spawn(move || {
+                player_func(
+                    sp_control_receiver,
+                    sp_message_receiver,
+                    ps_message_sender,
+                    player_params,
+                )
+            })
             .unwrap();
 
         p_threads.push(th);
@@ -137,9 +154,7 @@ fn run_single(
 
 pub fn run<GC, G>(
     game_constr: GC,
-    players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Copy + 'static,
-    >,
+    players: &Vec<PlayerPlayFunction>,
     nb_runs: u32,
     record_path: Option<String>,
     return_stats: bool,
@@ -202,9 +217,7 @@ where
 
 pub fn run_permut<GC, G>(
     game_constr: GC,
-    players: &Vec<
-        impl Fn(Receiver<bool>, Receiver<String>, Sender<String>) + Send + Copy + 'static,
-    >,
+    players: &Vec<PlayerPlayFunction>,
     nb_runs: u32,
     record_path: Option<String>,
     return_stats: bool,
@@ -221,7 +234,7 @@ where
     for perm in player_ids.iter().permutations(player_count) {
         let mut perm_players = Vec::new();
         for p in &perm {
-            perm_players.push(players[**p]);
+            perm_players.push(players[**p].clone());
         }
         let result = run(
             &game_constr,

@@ -1,4 +1,6 @@
 use std::sync::mpsc::{Receiver, Sender};
+use std::collections::HashMap;
+
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
@@ -614,7 +616,7 @@ mod mcts {
                 let node = &self.arr[node_idx];
 
                 // Identify child with largest UCB
-                let mut max_ucb: f32 = 0.0;
+                let mut max_ucb: f32 = -f32::INFINITY;
                 let mut max_ucb_node_idx = 0;
                 for c in
                     node.child_first.unwrap()..node.child_first.unwrap() + node.child_count as usize
@@ -762,7 +764,7 @@ mod conv {
 }
 
 #[allow(unused_variables, unused_assignments, unused_must_use)]
-pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
+pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>, params : Option<HashMap<String, String>>) {
     let mut state = game::new();
     let mut my_pid = 1; // Assume that I'm player 1
     let mut opp_pid = 0;
