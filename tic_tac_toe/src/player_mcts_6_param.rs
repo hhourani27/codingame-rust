@@ -614,7 +614,7 @@ mod mcts {
                 let node = &self.arr[node_idx];
 
                 // Identify child with largest UCB
-                let mut max_ucb: f32 = 0.0;
+                let mut max_ucb: f32 = -f32::INFINITY;
                 let mut max_ucb_node_idx = 0;
                 for c in
                     node.child_first.unwrap()..node.child_first.unwrap() + node.child_count as usize
