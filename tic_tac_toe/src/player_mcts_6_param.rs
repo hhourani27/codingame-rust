@@ -1,4 +1,5 @@
 use std::sync::mpsc::{Receiver, Sender};
+use std::collections::HashMap;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
@@ -478,14 +479,16 @@ mod mcts {
         root_idx : usize,
         len: usize,
         nb_simulations: u32,
+        exploration_coef : f32
     }
 
-    pub fn new() -> MCTS {
+    pub fn new(exploration_coef: f32) -> MCTS {
         MCTS {
             arr: vec![Default::default(); MAX_NODE_COUNT],
             root_idx: 0,
             len: 0,
             nb_simulations: 0,
+            exploration_coef: exploration_coef
         }
     }
 
@@ -620,7 +623,7 @@ mod mcts {
                     node.child_first.unwrap()..node.child_first.unwrap() + node.child_count as usize
                 {
                     let child = &self.arr[c];
-                    let child_ucb = MCTS::ucb(node.visits, child.score, child.visits);
+                    let child_ucb = MCTS::ucb(node.visits, child.score, child.visits, self.exploration_coef);
                     if child_ucb == f32::INFINITY {
                         //TODO: I'm choosing the first child with ucb=INF. Try to choose a bit more randomly
                         max_ucb_node_idx = c;
@@ -643,12 +646,12 @@ mod mcts {
             node_idx
         }
 
-        fn ucb(parent_visit: u32, score: f32, visits: u32) -> f32 {
+        fn ucb(parent_visit: u32, score: f32, visits: u32, exploration_coef: f32) -> f32 {
             match visits {
                 0 => f32::INFINITY,
                 _ => {
                     (score / visits as f32)
-                        + 0.41 * ((parent_visit as f32).ln() / (visits as f32)).sqrt()
+                        + exploration_coef * ((parent_visit as f32).ln() / (visits as f32)).sqrt()
                 }
             }
         }
@@ -762,13 +765,16 @@ mod conv {
 }
 
 #[allow(unused_variables, unused_assignments, unused_must_use)]
-pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
+pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>, params : Option<HashMap<String, String>>) {
+
+    let exploration_coef = params.unwrap().get("Exploration coef").unwrap().parse::<f32>().unwrap();
+
     let mut state = game::new();
     let mut my_pid = 1; // Assume that I'm player 1
     let mut opp_pid = 0;
 
     // Prepare MCTS
-    let mut mcts: mcts::MCTS = mcts::new();
+    let mut mcts: mcts::MCTS = mcts::new(exploration_coef);
     let mut cache = game::Cache::new();
     let mut previous_moves: Vec<game::Move> = Vec::new();
 
