@@ -527,7 +527,7 @@ mod mcts {
 
             
             eprintln!(
-                "[MCTS P5] End. Sending best move after expanding {} nodes and running {} simulations in {:?}",
+                "[MCTS P6] End. Sending best move after expanding {} nodes and running {} simulations in {:?}",
                 self.len, self.nb_simulations, start.elapsed()
             );
             
