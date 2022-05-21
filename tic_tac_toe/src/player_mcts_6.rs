@@ -439,7 +439,7 @@ mod mcts {
     use rand::Rng;
     use std::time::Instant;
 
-    const MAX_NODE_COUNT: usize = 300_000;
+    const MAX_NODE_COUNT: usize = 3000_000;
     const TIME_LIMIT_MS: u128 = 100;
 
     #[derive(Clone, Copy)]
@@ -475,6 +475,7 @@ mod mcts {
 
     pub struct MCTS {
         arr: Vec<Node>,
+        root_idx : usize,
         len: usize,
         nb_simulations: u32,
     }
@@ -482,6 +483,7 @@ mod mcts {
     pub fn new() -> MCTS {
         MCTS {
             arr: vec![Default::default(); MAX_NODE_COUNT],
+            root_idx: 0,
             len: 0,
             nb_simulations: 0,
         }
@@ -491,8 +493,7 @@ mod mcts {
         pub fn best_move(
             &mut self,
             root_state: &game::State,
-            valid_moves: &Vec<game::Move>,
-            player: u8,
+            previous_moves : &[game::Move],
             cache: &mut game::Cache
         ) -> game::Move {
             /*
@@ -503,7 +504,7 @@ mod mcts {
 
             //eprintln!("[MCTS] init");
             let start = Instant::now();
-            self.init(valid_moves, player);
+            self.init(previous_moves);
 
             while (start.elapsed().as_millis() < TIME_LIMIT_MS)
                 & (self.len < MAX_NODE_COUNT - game::MAX_NB_MOVES)
@@ -535,8 +536,8 @@ mod mcts {
             // When time is up, choose the move with the best score
             let mut max_score: f32 = -f32::INFINITY;
             let mut max_score_child_idx = 0;
-            for c in self.arr[0].child_first.unwrap()
-                ..self.arr[0].child_first.unwrap() + self.arr[0].child_count as usize
+            for c in self.arr[self.root_idx].child_first.unwrap()
+                ..self.arr[self.root_idx].child_first.unwrap() + self.arr[self.root_idx].child_count as usize
             {
                 let child = &self.arr[c];
                 let child_score = match child.visits {
@@ -552,20 +553,38 @@ mod mcts {
             self.arr[max_score_child_idx].move_.unwrap()
         }
 
-        fn init(&mut self, valid_moves: &Vec<game::Move>, player: u8) {
+        fn init(&mut self, previous_moves : &[game::Move]) {
             // Re-initialize the node tree
 
-            // Re-initialize Root
-            self.arr[0] = Default::default();
-            self.arr[0].expanded = true;
-            self.len = 1;
             self.nb_simulations = 0;
+            // If the tree is already empty, just initialize the root
+            if self.len == 0 {
+                self.arr[0] = Default::default();
+                self.arr[0].expanded = false;
+                self.len = 1;
+            }
+            else {
+            // else if the tree is already constructed, move the root index down to the correct position
+                for m in previous_moves {
+                    let root_node = &self.arr[self.root_idx];
+                    
+                    let mut down_the_tree = false; // To make sure 
+                    for c in
+                    root_node.child_first.unwrap()..root_node.child_first.unwrap() + root_node.child_count as usize {
+                        let child = &self.arr[c];
 
-            // Create the children of root
-            self.arr[0].child_first = Some(1);
-            self.arr[0].child_count = valid_moves.len() as u8;
-            for vm in valid_moves {
-                self.create_child(0, *vm, player);
+                        if child.move_.unwrap() == *m {
+                            //eprintln!("[INIT] Descending from node {} to {}", self.root_idx, c);
+
+                            self.root_idx = c;
+                            down_the_tree = true;
+                            break;   
+                        }
+                    }
+                    if down_the_tree == false {
+                        panic!("[MCTS][ERROR] Couldn't find node when re-initializing the tree");
+                    }
+                }
             }
         }
 
@@ -587,7 +606,7 @@ mod mcts {
             /* Go down the tree, selecting each time the node with the largest UCB, until you reach an unexpanded node
              On the way update the state.
             */
-            let mut node_idx = 0;
+            let mut node_idx = self.root_idx;
 
             while self.arr[node_idx].child_count > 0 {
                 let node = &self.arr[node_idx];
@@ -682,16 +701,18 @@ mod mcts {
         }
 
         fn backpropagate(&mut self, selected_node_idx: usize, score: game::GameScore) {
+            //eprintln!("[BCK] Backpropagating from node {} to root node {}",selected_node_idx,self.root_idx);
             let mut node_idx = selected_node_idx;
-            while self.arr[node_idx].parent.is_some() {
+            while node_idx != self.root_idx {
                 self.arr[node_idx].visits += 1;
                 self.arr[node_idx].score += score[self.arr[node_idx].player.unwrap() as usize];
 
+                //eprintln!("[BCK] From node {} to its parent {:?}",node_idx, self.arr[node_idx].parent);
                 node_idx = self.arr[node_idx].parent.unwrap();
             }
 
             // Update visit count for the root node
-            self.arr[0].visits += 1;
+            self.arr[self.root_idx].visits += 1;
         }
     }
 }
@@ -749,6 +770,7 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
     // Prepare MCTS
     let mut mcts: mcts::MCTS = mcts::new();
     let mut cache = game::Cache::new();
+    let mut previous_moves: Vec<game::Move> = Vec::new();
 
     while ctr_rcv.recv().unwrap() == true {
         // (1) Read inputs
@@ -778,22 +800,28 @@ pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<
             my_pid = 0;
             opp_pid = 1;
         } else {
+            let opponent_move = conv::movetuple_to_move81((opponent_row as u8, opponent_col as u8));
             // Update the state with the opponent's last action
             game::update_state(
                 &mut state,
                 opp_pid,
-                conv::movetuple_to_move81((opponent_row as u8, opponent_col as u8)),
+                opponent_move,
             );
+
+            previous_moves.push(opponent_move);
         }
 
         // (3) Determine the next best action
-        let best_move = mcts.best_move(&state, &valid_actions, my_pid, &mut cache);
+        let best_move = mcts.best_move(&state, &previous_moves, &mut cache);
 
         // (4) Update state with my action
         game::update_state(&mut state, my_pid, best_move);
+        previous_moves.clear();
+        previous_moves.push(best_move);
 
         // (5) Send the move
         let best_move = conv::move81_to_movetuple(best_move);
         msg_snd.send(format!("{} {}", best_move.0, best_move.1));
+
     }
 }

@@ -403,6 +403,7 @@ impl Game for TicTacToeGame {
         let valid_moves =
             TicTacToeGame::valid_moves(&self.p_boards, self.locked_squares, self.last_move);
         if valid_moves & move81 == 0 {
+            eprintln!("[GAME] Received invalid move {}", msg);
             self.last_move_result = Some(MoveResult::InvalidMove);
             self.active = false;
             self.winners = if pid == 0 {
