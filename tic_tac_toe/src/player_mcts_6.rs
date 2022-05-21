@@ -568,19 +568,21 @@ mod mcts {
                 for m in previous_moves {
                     let root_node = &self.arr[self.root_idx];
                     
-                    let mut down_the_tree = false; // To make sure 
+                    let mut down_the_tree = false; // To verify that the child node was created in a previous iteration
                     for c in
                     root_node.child_first.unwrap()..root_node.child_first.unwrap() + root_node.child_count as usize {
                         let child = &self.arr[c];
 
                         if child.move_.unwrap() == *m {
-                            //eprintln!("[INIT] Descending from node {} to {}", self.root_idx, c);
-
                             self.root_idx = c;
                             down_the_tree = true;
                             break;   
                         }
                     }
+
+                    // I mostly assume that previous iterations have created all nodes levels until the next turn.
+                    // If that's not the case, it will panic
+                    // TODO: correct this bit
                     if down_the_tree == false {
                         panic!("[MCTS][ERROR] Couldn't find node when re-initializing the tree");
                     }
@@ -701,13 +703,11 @@ mod mcts {
         }
 
         fn backpropagate(&mut self, selected_node_idx: usize, score: game::GameScore) {
-            //eprintln!("[BCK] Backpropagating from node {} to root node {}",selected_node_idx,self.root_idx);
             let mut node_idx = selected_node_idx;
             while node_idx != self.root_idx {
                 self.arr[node_idx].visits += 1;
                 self.arr[node_idx].score += score[self.arr[node_idx].player.unwrap() as usize];
 
-                //eprintln!("[BCK] From node {} to its parent {:?}",node_idx, self.arr[node_idx].parent);
                 node_idx = self.arr[node_idx].parent.unwrap();
             }
 
