@@ -155,13 +155,28 @@ mod game {
         !state.active
     }
 
-    pub fn get_scores(state: &State) -> GameScore {
-        match state.winners {
-            Some((WinLossTie::Win, WinLossTie::Loss)) => [1.0, 0.0, 0.0, 0.0],
-            Some((WinLossTie::Loss, WinLossTie::Win)) => [0.0, 1.0, 0.0, 0.0],
-            Some((WinLossTie::Tie, WinLossTie::Tie)) => [0.5, 0.5, 0.0, 0.0],
-            _ => panic!(),
+    pub fn get_scores(state: &State, winloss_scores: &str) -> GameScore {
+        if winloss_scores == "1.0,-1.0,0.0" {
+            match state.winners {
+                Some((WinLossTie::Win, WinLossTie::Loss)) => [1.0, -1.0, 0.0, 0.0],
+                Some((WinLossTie::Loss, WinLossTie::Win)) => [-1.0, 0.0, 0.0, 0.0],
+                Some((WinLossTie::Tie, WinLossTie::Tie)) => [0.0, 0.0, 0.0, 0.0],
+                _ => panic!(),
+            }
         }
+        else if winloss_scores == "1.0,0.0,0.5" {
+            match state.winners {
+                Some((WinLossTie::Win, WinLossTie::Loss)) => [1.0, 0.0, 0.0, 0.0],
+                Some((WinLossTie::Loss, WinLossTie::Win)) => [0.0, 1.0, 0.0, 0.0],
+                Some((WinLossTie::Tie, WinLossTie::Tie)) => [0.5, 0.5, 0.0, 0.0],
+                _ => panic!(),
+            }
+        }
+        else {
+            panic!();
+        }
+
+
     }
 
     pub fn valid_moves(state: &State) -> (u8, StackVector<Move, 81>) {
@@ -479,16 +494,19 @@ mod mcts {
         root_idx : usize,
         len: usize,
         nb_simulations: u32,
-        exploration_coef : f32
+        exploration_coef : f32,
+        winloss_scores : String
     }
 
-    pub fn new(exploration_coef: f32) -> MCTS {
+    pub fn new(exploration_coef: f32, winloss_scores: String) -> MCTS {
+
         MCTS {
             arr: vec![Default::default(); MAX_NODE_COUNT],
             root_idx: 0,
             len: 0,
             nb_simulations: 0,
-            exploration_coef: exploration_coef
+            exploration_coef: exploration_coef,
+            winloss_scores : winloss_scores
         }
     }
 
@@ -510,7 +528,7 @@ mod mcts {
             self.init(previous_moves);
 
             while (start.elapsed().as_millis() < TIME_LIMIT_MS)
-                & (self.len < MAX_NODE_COUNT - game::MAX_NB_MOVES)
+                && (self.len < MAX_NODE_COUNT - game::MAX_NB_MOVES)
             {
                 let mut state = root_state.clone();
 
@@ -529,11 +547,12 @@ mod mcts {
                 self.nb_simulations += 1;
             }
 
-            
+            /*
             eprintln!(
                 "[MCTS P6] End. Sending best move after expanding {} nodes and running {} simulations in {:?}",
                 self.len, self.nb_simulations, start.elapsed()
             );
+            */
             
 
             // When time is up, choose the move with the best score
@@ -702,7 +721,7 @@ mod mcts {
             }
 
             // Get the result
-            game::get_scores(state)
+            game::get_scores(state, &self.winloss_scores)
         }
 
         fn backpropagate(&mut self, selected_node_idx: usize, score: game::GameScore) {
@@ -767,15 +786,16 @@ mod conv {
 #[allow(unused_variables, unused_assignments, unused_must_use)]
 pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>, params : Option<HashMap<String, String>>) {
 
-    eprintln!("Received Params: {:?}",params);
-    let exploration_coef = params.unwrap().get("Exploration coef").unwrap().parse::<f32>().unwrap();
+    let params = params.unwrap();
+    let exploration_coef = params.get("Exploration coef").unwrap().parse::<f32>().unwrap();
+    let winloss_scores = params.get("WinLossTie scores").unwrap().clone();
 
     let mut state = game::new();
     let mut my_pid = 1; // Assume that I'm player 1
     let mut opp_pid = 0;
 
     // Prepare MCTS
-    let mut mcts: mcts::MCTS = mcts::new(exploration_coef);
+    let mut mcts: mcts::MCTS = mcts::new(exploration_coef, winloss_scores);
     let mut cache = game::Cache::new();
     let mut previous_moves: Vec<game::Move> = Vec::new();
 
