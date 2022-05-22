@@ -1,7 +1,6 @@
 use crate::{record, WinLossTie};
 use crate::{Game, Message};
 use itertools::Itertools;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Error;
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -23,13 +22,9 @@ impl RunStatistics {
 
 #[derive(Clone)]
 pub struct PlayerPlayFunction {
-    pub func: &'static (dyn Fn(
-        Receiver<bool>,
-        Receiver<String>,
-        Sender<String>,
-        Option<HashMap<String, String>>,
-    ) + Sync),
-    pub params: Option<HashMap<String, String>>,
+    pub func: &'static (dyn Fn(Receiver<bool>, Receiver<String>, Sender<String>, Option<Vec<String>>)
+                  + Sync),
+    pub params: Option<Vec<String>>,
 }
 
 fn run_single(
