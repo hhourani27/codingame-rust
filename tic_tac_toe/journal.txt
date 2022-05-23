@@ -1,5 +1,5 @@
-- Player 1 : MCTS using some bitboard, but mostly row and col indexes: 10K simulations => 180th in Gold
-- Player 2 : Switched to a full 81-bit representation of boards, masks & moves. 20K simulations, but at middle game, my memory caps the number of nodes I can explore => 80th Gold
+- Player 1 : MCTS using some bitboard, but mostly row and col indexes: 10K simulations => 300th in Gold
+- Player 2 : Switched to a full 81-bit representation of boards, masks & moves. 20K simulations, but at middle game, my memory caps the number of nodes I can explore => 180th Gold
 - Player 3 : Save MCTS tree in heap (vector) instead of stack (array). Same performance as for arrays (vector is slower at memory allocation, but I pre-allocate all memory at first iteration. That allows me to have a much larger tree (55000 nodes to 200000 nodes) => 60th in Gold
 - Player 4 : Optimize update state, reduce check for winning conditions : do not check for winning conditions if no squares were taken => 50th in Gold
 - Player 5 : Change exploration coefficient from 1.41 to 0.4 => 1st in Gold
