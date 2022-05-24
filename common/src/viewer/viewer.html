@@ -90,8 +90,10 @@
 
     function printState(game_state, div, repr) {
       //Print Board
-      div_board = div.getElementsByClassName("board")[0];
-      printBoard(game_state["board"], div_board, repr);
+      if (game_state["board"] != null) {
+        div_board = div.getElementsByClassName("board")[0];
+        printBoard(game_state["board"], div_board, repr);
+      }
 
       //Print State
       div_state = div.getElementsByClassName("state")[0];

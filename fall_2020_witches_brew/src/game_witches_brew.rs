@@ -377,15 +377,22 @@ impl Game for WitchesBrewGame {
             self.active_player.to_string(),
         );
 
-        for pid in 0..=1 {
-            state.insert(
-                format!("player[{}]: Move", pid),
-                match self.moves[pid] {
+        state.insert(
+            String::from("Moves"),
+            format!(
+                "[{}, {}]",
+                match self.moves[0] {
                     None => String::from("None"),
                     Some(m) => format!("{}", m),
                 },
-            );
+                match self.moves[1] {
+                    None => String::from("None"),
+                    Some(m) => format!("{}", m),
+                }
+            ),
+        );
 
+        for pid in 0..=1 {
             fn fmt_ingredients(ingredients: &Ingredients) -> String {
                 format!(
                     "[🐋: {}, 🍏: {}, 🦧: {}, 💛: {}]",
