@@ -311,6 +311,7 @@ impl Game for WitchesBrewGame {
 
             /* 3.2 Update the state */
             // For each player move
+            let mut orders_to_remove: [Option<usize>; 2] = [None, None];
             for pid in 0..=1 {
                 // If it's a BREW move
                 if let Move::BREW(order_id) = self.moves[pid].unwrap() {
@@ -329,15 +330,21 @@ impl Game for WitchesBrewGame {
                         &self.orders[fullfilled_order_idx].unwrap().ingredients,
                     );
 
-                    // Remove fullfilled orders and create new one in its place
-                    // Do nothing, if player 1 fullfilled the same order as player 0
-                    if pid == 0 || (pid == 1 && self.moves[1] != self.moves[0]) {
-                        self.orders[fullfilled_order_idx] = Some(WitchesBrewGame::generate_order(
-                            self.next_order_id,
-                            &mut self.rnd,
-                        ));
-                        self.next_order_id += 1;
+                    if orders_to_remove[0] == None {
+                        orders_to_remove[0] = Some(fullfilled_order_idx);
+                    } else if fullfilled_order_idx != orders_to_remove[0].unwrap() {
+                        orders_to_remove[1] = Some(fullfilled_order_idx);
                     }
+                }
+            }
+            // Remove fullfilled orders and create new one in its place
+            for i in 0..2 {
+                if let Some(oix) = orders_to_remove[i] {
+                    self.orders[oix] = Some(WitchesBrewGame::generate_order(
+                        self.next_order_id,
+                        &mut self.rnd,
+                    ));
+                    self.next_order_id += 1;
                 }
             }
 
