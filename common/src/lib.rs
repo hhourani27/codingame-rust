@@ -44,7 +44,7 @@ pub trait Game {
 
     fn get_state(&self) -> record::GameState;
 
-    fn get_board_representation() -> record::BoardRepresentation;
+    fn get_board_representation() -> Option<record::BoardRepresentation>;
 }
 
 #[derive(Serialize, Debug, Clone, Copy)]
@@ -61,7 +61,7 @@ pub mod record {
 
     #[derive(Serialize)]
     pub struct Record {
-        pub board_representation: BoardRepresentation,
+        pub board_representation: Option<BoardRepresentation>,
         pub game_runs: Vec<GameRun>,
     }
 
@@ -99,7 +99,7 @@ pub mod record {
 
     #[derive(Serialize, Default)]
     pub struct GameState {
-        pub board: Vec<Vec<String>>,
-        pub state: HashMap<&'static str, String>,
+        pub board: Option<Vec<Vec<String>>>,
+        pub state: HashMap<String, String>,
     }
 }

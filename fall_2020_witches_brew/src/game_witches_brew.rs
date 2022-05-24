@@ -1,6 +1,8 @@
 use common::record;
 use common::{Game, Message, StackVector, WinLossTie};
 use rand::{rngs, Rng};
+use std::collections::HashMap;
+use std::fmt;
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => {
@@ -11,6 +13,15 @@ macro_rules! parse_input {
 enum Move {
     WAIT,
     BREW(usize),
+}
+
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Move::WAIT => write!(f, "WAIT"),
+            Move::BREW(i) => write!(f, "BREW {}", i),
+        }
+    }
 }
 
 type Ingredients = [isize; 4];
@@ -358,10 +369,199 @@ impl Game for WitchesBrewGame {
     }
 
     fn get_state(&self) -> record::GameState {
-        todo!()
+        let mut state: HashMap<String, String> = HashMap::new();
+        state.insert(String::from("turn"), self.turn.to_string());
+        state.insert(String::from("active"), self.active.to_string());
+        state.insert(
+            String::from("active_player"),
+            self.active_player.to_string(),
+        );
+
+        for pid in 0..=1 {
+            state.insert(
+                format!("player[{}]: Move", pid),
+                match self.moves[pid] {
+                    None => String::from("None"),
+                    Some(m) => format!("{}", m),
+                },
+            );
+
+            fn fmt_ingredients(ingredients: &Ingredients) -> String {
+                format!(
+                    "[🐋: {}, 🍏: {}, 🦧: {}, 💛: {}]",
+                    ingredients[0], ingredients[1], ingredients[2], ingredients[3]
+                )
+            }
+
+            state.insert(
+                format!("player[{}]: Stock", pid),
+                fmt_ingredients(&self.ingredient_stocks[pid]),
+            );
+
+            state.insert(
+                format!("player[{}]: Rupees", pid),
+                self.rupees[pid].to_string(),
+            );
+
+            state.insert(
+                format!("player[{}]: Brewed potion count", pid),
+                self.brewed_potions_count[pid].to_string(),
+            );
+        }
+
+        record::GameState { board: None, state }
     }
 
-    fn get_board_representation() -> record::BoardRepresentation {
-        todo!()
+    fn get_board_representation() -> Option<record::BoardRepresentation> {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use common::assert_vec_eq;
+
+    use super::*;
+
+    #[test]
+    fn test_can_fulfill_order() {
+        let stock = [3, 2, 1, 0];
+        let order = Order {
+            id: 0,
+            ingredients: [-1, -1, -1, 0],
+            price: 0,
+        };
+        assert!(WitchesBrewGame::can_fulfill_order(&order, &stock));
+
+        let order = Order {
+            id: 0,
+            ingredients: [0, 0, -1, 0],
+            price: 0,
+        };
+        assert!(WitchesBrewGame::can_fulfill_order(&order, &stock));
+
+        let order = Order {
+            id: 0,
+            ingredients: [-3, -2, -1, 0],
+            price: 0,
+        };
+        assert!(WitchesBrewGame::can_fulfill_order(&order, &stock));
+
+        let order = Order {
+            id: 0,
+            ingredients: [-4, -2, -1, 0],
+            price: 0,
+        };
+        assert!(!WitchesBrewGame::can_fulfill_order(&order, &stock));
+
+        let order = Order {
+            id: 0,
+            ingredients: [-3, -2, -2, 0],
+            price: 0,
+        };
+        assert!(!WitchesBrewGame::can_fulfill_order(&order, &stock));
+
+        let order = Order {
+            id: 0,
+            ingredients: [0, 0, 0, -1],
+            price: 0,
+        };
+        assert!(!WitchesBrewGame::can_fulfill_order(&order, &stock));
+    }
+
+    #[test]
+    fn test_get_order_idx() {
+        let orders: [Option<Order>; 5] = [
+            Some(Order {
+                id: 4,
+                ingredients: [0, 0, 0, -1],
+                price: 0,
+            }),
+            Some(Order {
+                id: 41,
+                ingredients: [0, 0, 0, -1],
+                price: 0,
+            }),
+            None,
+            Some(Order {
+                id: 132,
+                ingredients: [0, 0, 0, -1],
+                price: 0,
+            }),
+            Some(Order {
+                id: 27,
+                ingredients: [0, 0, 0, -1],
+                price: 0,
+            }),
+        ];
+
+        assert_eq!(WitchesBrewGame::get_order_idx(&orders, 4), Some(0));
+        assert_eq!(WitchesBrewGame::get_order_idx(&orders, 41), Some(1));
+        assert_eq!(WitchesBrewGame::get_order_idx(&orders, 132), Some(3));
+        assert_eq!(WitchesBrewGame::get_order_idx(&orders, 27), Some(4));
+        assert_eq!(WitchesBrewGame::get_order_idx(&orders, 100), None);
+    }
+
+    #[test]
+    fn test_use_ingredient_stock() {
+        let mut stock = [3, 2, 1, 0];
+        let order_ings: Ingredients = [-1, -1, -1, 0];
+
+        WitchesBrewGame::use_ingredient_stock(&mut stock, &order_ings);
+        let expected_stock: [isize; 4] = [2, 1, 0, 0];
+        assert_eq!(stock, expected_stock);
+
+        let mut stock = [3, 2, 1, 0];
+        let order_ings: Ingredients = [0, 0, -1, 0];
+
+        WitchesBrewGame::use_ingredient_stock(&mut stock, &order_ings);
+        let expected_stock: [isize; 4] = [3, 2, 0, 0];
+        assert_eq!(stock, expected_stock);
+
+        let mut stock = [3, 2, 1, 0];
+        let order_ings: Ingredients = [-3, -2, -1, 0];
+
+        WitchesBrewGame::use_ingredient_stock(&mut stock, &order_ings);
+        let expected_stock: [isize; 4] = [0, 0, 0, 0];
+        assert_eq!(stock, expected_stock);
+    }
+
+    #[test]
+    fn test_valid_moves() {
+        let stock = [3, 2, 1, 0];
+        let orders: [Option<Order>; 5] = [
+            Some(Order {
+                id: 4,
+                ingredients: [0, 0, 0, -1],
+                price: 0,
+            }),
+            Some(Order {
+                id: 41,
+                ingredients: [-1, -1, -1, 0],
+                price: 0,
+            }),
+            Some(Order {
+                id: 132,
+                ingredients: [0, 0, -2, 0],
+                price: 0,
+            }),
+            Some(Order {
+                id: 132,
+                ingredients: [-3, -2, -1, 0],
+                price: 0,
+            }),
+            Some(Order {
+                id: 27,
+                ingredients: [-4, -2, -1, 0],
+                price: 0,
+            }),
+        ];
+
+        let expected_valid_moves = [Move::WAIT, Move::BREW(41), Move::BREW(132)];
+
+        assert_vec_eq!(
+            WitchesBrewGame::valid_moves(&orders, &stock).get(),
+            expected_valid_moves
+        );
     }
 }

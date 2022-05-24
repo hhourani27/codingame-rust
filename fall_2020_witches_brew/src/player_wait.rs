@@ -6,10 +6,7 @@ macro_rules! parse_input {
     };
 }
 
-/**
- * Auto-generated code below aims at helping you parse
- * the standard input according to the problem statement.
- **/
+#[allow(unused_variables, unused_assignments, unused_must_use)]
 pub fn play(
     ctr_rcv: Receiver<bool>,
     msg_rcv: Receiver<String>,
@@ -49,6 +46,6 @@ pub fn play(
         }
 
         // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
-        msg_snd.send(format!("BREW 0"));
+        msg_snd.send(format!("WAIT"));
     }
 }
