@@ -19,17 +19,17 @@ pub struct Message {
 #[allow(non_snake_case)]
 pub struct StackVector<T, const MAX_SIZE: usize> {
     pub arr: [T; MAX_SIZE],
-    pub N: usize,
+    pub len: usize,
 }
 
 impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
     pub fn add(&mut self, e: T) {
-        self.arr[self.N] = e;
-        self.N += 1;
+        self.arr[self.len] = e;
+        self.len += 1;
     }
 
     pub fn get(&self) -> &[T] {
-        &self.arr[0..self.N]
+        &self.arr[0..self.len]
     }
 }
 
