@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 itertools = "0.10.0"
 rand = "0.8.3"
-common = { path = "../common" }
+common = { git = "file:///C:/Users/hhour/Desktop/codingame-rust/.git", rev="a02a1d1e50d728d844cb0086041af600c40fb19c" }
 
 [profile.dev]
 debug = true
