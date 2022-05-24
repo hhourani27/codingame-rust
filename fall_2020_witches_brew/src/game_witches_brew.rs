@@ -330,12 +330,14 @@ impl Game for WitchesBrewGame {
                     );
 
                     // Remove fullfilled orders and create new one in its place
-                    // TODO: if player 0 & 1 brewed the same potion, I'll be creating a new order twice
-                    self.orders[fullfilled_order_idx] = Some(WitchesBrewGame::generate_order(
-                        self.next_order_id,
-                        &mut self.rnd,
-                    ));
-                    self.next_order_id += 1;
+                    // Do nothing, if player 1 fullfilled the same order as player 0
+                    if pid == 0 || (pid == 1 && self.moves[1] != self.moves[0]) {
+                        self.orders[fullfilled_order_idx] = Some(WitchesBrewGame::generate_order(
+                            self.next_order_id,
+                            &mut self.rnd,
+                        ));
+                        self.next_order_id += 1;
+                    }
                 }
             }
 

@@ -11,5 +11,5 @@
   "lldb.showDisassembly": "auto",
   "lldb.dereferencePointers": true,
   "lldb.consoleMode": "commands",
-  "lldb.displayFormat": "decimal"
+  "lldb.displayFormat": "auto"
 }
