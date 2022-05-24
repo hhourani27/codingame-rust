@@ -11,7 +11,7 @@ macro_rules! parse_input {
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
  **/
-#[allow(unused_variables, unused_assignments, unused_must_use)]
+#[allow(unused_variables, unused_assignments, unused_must_use, dead_code)]
 pub fn play(ctr_rcv: Receiver<bool>, msg_rcv: Receiver<String>, msg_snd: Sender<String>) {
     // game loop
     while ctr_rcv.recv().unwrap() == true {
