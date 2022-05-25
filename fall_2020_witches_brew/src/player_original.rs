@@ -15,10 +15,12 @@ fn main() {
     loop {
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
+        eprintln!("{}", input_line);
         let action_count = parse_input!(input_line, i32); // the number of spells and recipes in play
         for i in 0..action_count as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
+            eprintln!("{}", input_line);
             let inputs = input_line.split(" ").collect::<Vec<_>>();
             let action_id = parse_input!(inputs[0], i32); // the unique ID of this spell or recipe
             let action_type = inputs[1].trim().to_string(); // in the first league: BREW; later: CAST, OPPONENT_CAST, LEARN, BREW
@@ -35,6 +37,7 @@ fn main() {
         for i in 0..2 as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
+            eprintln!("{}", input_line);
             let inputs = input_line.split(" ").collect::<Vec<_>>();
             let inv_0 = parse_input!(inputs[0], i32); // tier-0 ingredients in inventory
             let inv_1 = parse_input!(inputs[1], i32);
@@ -47,6 +50,6 @@ fn main() {
         // To debug: eprintln!("Debug message...");
 
         // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
-        println!("BREW 0");
+        println!("WAIT");
     }
 }
