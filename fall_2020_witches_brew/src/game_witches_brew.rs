@@ -33,16 +33,14 @@ impl Move {
             },
         }
     }
-}
 
-impl fmt::Display for Move {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn to_string(&self) -> String {
         match self {
-            Move::NONE => write!(f, "None"),
-            Move::WAIT => write!(f, "WAIT"),
-            Move::REST => write!(f, "REST"),
-            Move::BREW(i) => write!(f, "BREW {}", i),
-            Move::CAST(i) => write!(f, "CAST {}", i),
+            Move::NONE => format!("None"),
+            Move::WAIT => format!("WAIT"),
+            Move::REST => format!("REST"),
+            Move::BREW(i) => format!("BREW {}", i),
+            Move::CAST(i) => format!("CAST {}", i),
         }
     }
 }
@@ -353,7 +351,7 @@ impl Game for WitchesBrewGame {
                 nb_orders += 1;
             }
         }
-        out.push(format!("{}", nb_orders));
+        out.push(format!("{}", nb_orders + 8)); // add the 8 spells of the 2 players
 
         /* (2) Output available orders */
         for order in self.orders.iter() {
@@ -392,7 +390,7 @@ impl Game for WitchesBrewGame {
         /* (4) Output the other player' spells */
         for spell in other_player.spells.iter() {
             out.push(format!(
-                "{} CAST {} {} {} {} 0 0 0 {} 0",
+                "{} OPPONENT_CAST {} {} {} {} 0 0 0 {} 0",
                 spell.id,
                 spell.ingredients[0],
                 spell.ingredients[1],
@@ -505,7 +503,7 @@ impl Game for WitchesBrewGame {
                     );
 
                     // Update the player's empty slots
-                    player.empty_slots += fullfilled_order.delta_stock;
+                    player.empty_slots -= fullfilled_order.delta_stock;
 
                     if orders_to_remove[0] == None {
                         orders_to_remove[0] = Some(fullfilled_order_idx);
@@ -527,7 +525,7 @@ impl Game for WitchesBrewGame {
                     );
 
                     // Update the player's empty slots
-                    player.empty_slots += cast_spell.delta_stock;
+                    player.empty_slots -= cast_spell.delta_stock;
 
                     // Spell is now exhausted
                     cast_spell.active = false;
@@ -601,23 +599,79 @@ impl Game for WitchesBrewGame {
 
         state.insert(
             String::from("Moves"),
-            format!("[{}, {}]", self.players[0].move_, self.players[1].move_),
+            format!(
+                "[{}, {}]",
+                self.players[0].move_.to_string(),
+                self.players[1].move_.to_string()
+            ),
+        );
+
+        fn fmt_order(order: &Order) -> String {
+            format!(
+                "[{} | {} | 🔸{}]",
+                order.id,
+                {
+                    let tiers = ['🐋', '🍏', '🦧', '💛'];
+                    let mut s = String::from("");
+                    for i in 0..order.ingredients.len() {
+                        if order.ingredients[i] < 0 {
+                            s.push_str(&format!("{}{} ", order.ingredients[i], tiers[i]));
+                        }
+                    }
+                    s
+                },
+                order.price
+            )
+        }
+
+        state.insert(
+            String::from("Orders"),
+            self.orders
+                .iter()
+                .map(|order| match order {
+                    None => String::from(""),
+                    Some(o) => fmt_order(o),
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
         );
 
         for pid in 0..=1 {
             let player: &Player = &self.players[pid];
 
-            fn fmt_ingredients(ingredients: &Ingredients) -> String {
+            fn fmt_stock(ingredients: &Ingredients) -> String {
                 format!(
                     "[🐋: {}, 🍏: {}, 🦧: {}, 💛: {}]",
                     ingredients[0], ingredients[1], ingredients[2], ingredients[3]
                 )
             }
 
-            state.insert(
-                format!("player[{}]: Stock", pid),
-                fmt_ingredients(&player.stock),
-            );
+            fn fmt_spell(spell: &Spell) -> String {
+                format!(
+                    "[{} {} | {}]",
+                    match spell.active {
+                        true => "🟢",
+                        false => "⚪",
+                    },
+                    spell.id,
+                    {
+                        let tiers = ['🐋', '🍏', '🦧', '💛'];
+                        let mut s = String::from("");
+                        for i in 0..spell.ingredients.len() {
+                            if spell.ingredients[i] < 0 {
+                                s.push_str(&format!("{}{} ", spell.ingredients[i], tiers[i]));
+                            }
+
+                            if spell.ingredients[i] > 0 {
+                                s.push_str(&format!("+{}{} ", spell.ingredients[i], tiers[i]));
+                            }
+                        }
+                        s
+                    }
+                )
+            }
+
+            state.insert(format!("player[{}]: Stock", pid), fmt_stock(&player.stock));
 
             state.insert(
                 format!("player[{}]: Rupees", pid),
@@ -627,6 +681,42 @@ impl Game for WitchesBrewGame {
             state.insert(
                 format!("player[{}]: Brewed potion count", pid),
                 player.brewed_potions_count.to_string(),
+            );
+
+            state.insert(
+                format!("player[{}]: Empty slots", pid),
+                player.empty_slots.to_string(),
+            );
+
+            state.insert(
+                format!("player[{}]: Empty slots", pid),
+                player.empty_slots.to_string(),
+            );
+
+            state.insert(
+                format!("player[{}]: Spells", pid),
+                player
+                    .spells
+                    .iter()
+                    .map(|s| fmt_spell(s))
+                    .collect::<Vec<String>>()
+                    .join(","),
+            );
+
+            let valid_moves = WitchesBrewGame::valid_moves(
+                &self.orders,
+                &player.spells,
+                &player.stock,
+                player.empty_slots,
+            );
+            state.insert(
+                format!("player[{}]: Valid moves", pid),
+                valid_moves
+                    .get()
+                    .iter()
+                    .map(|m| m.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
             );
         }
 

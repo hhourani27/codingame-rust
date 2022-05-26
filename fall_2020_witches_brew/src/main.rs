@@ -3,24 +3,24 @@ use common::simulator;
 use common::simulator::PlayerPlayFunction;
 use common::Game;
 use game_witches_brew::WitchesBrewGame;
-mod player_1;
+mod player_random;
 use std::time::Instant;
 
 fn main() {
     const STATS: bool = true;
     const RECORD: bool = true;
     const RUN_PERMUT: bool = false;
-    const RUNS: u32 = 10;
+    const RUNS: u32 = 100;
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/fall_2020_witches_brew/output";
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_1::play,
+            func: &player_random::play,
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_1::play,
+            func: &player_random::play,
             params: None,
         },
     ];
