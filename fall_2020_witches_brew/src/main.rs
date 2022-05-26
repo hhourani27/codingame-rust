@@ -3,7 +3,7 @@ use common::simulator;
 use common::simulator::PlayerPlayFunction;
 use common::Game;
 use game_witches_brew::WitchesBrewGame;
-mod player_1_wood2;
+mod player_1;
 use std::time::Instant;
 
 fn main() {
@@ -16,11 +16,11 @@ fn main() {
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_1_wood2::play,
+            func: &player_1::play,
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_1_wood2::play,
+            func: &player_1::play,
             params: None,
         },
     ];
