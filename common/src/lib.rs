@@ -63,6 +63,20 @@ impl<T: Copy + Clone + Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> 
         removed_element
     }
 
+    pub fn remove_multi<const NB_ELEMENTS: usize>(
+        &mut self,
+        mut indices: [usize; NB_ELEMENTS],
+    ) -> [T; NB_ELEMENTS] {
+        let mut removed_elements: [T; NB_ELEMENTS] = [Default::default(); NB_ELEMENTS];
+
+        indices.sort();
+        for i in 0..NB_ELEMENTS {
+            removed_elements[i] = self.remove(indices[i] - i);
+        }
+
+        removed_elements
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }
@@ -208,5 +222,34 @@ mod tests {
         assert_eq!(list.slice().len(), 9);
         let v: Vec<u8> = list.slice().to_vec();
         assert_vec_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    }
+
+    #[test]
+    fn test_stackvector_remove_multiple_elements() {
+        let mut list: StackVector<u8, 10> = StackVector::new();
+        for i in 0..10 {
+            list.add(i);
+        }
+        list.remove_multi([0, 4]);
+        let v: Vec<u8> = list.slice().to_vec();
+        assert_vec_eq!(v, vec![1, 2, 3, 5, 6, 7, 8, 9]);
+
+        //
+        let mut list: StackVector<u8, 10> = StackVector::new();
+        for i in 0..10 {
+            list.add(i);
+        }
+        list.remove_multi([7, 0, 4]);
+        let v: Vec<u8> = list.slice().to_vec();
+        assert_vec_eq!(v, vec![1, 2, 3, 5, 6, 8, 9]);
+
+        //
+        let mut list: StackVector<u8, 10> = StackVector::new();
+        for i in 0..10 {
+            list.add(i);
+        }
+        list.remove_multi([5]);
+        let v: Vec<u8> = list.slice().to_vec();
+        assert_vec_eq!(v, vec![0, 1, 2, 3, 4, 6, 7, 8, 9]);
     }
 }

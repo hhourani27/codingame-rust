@@ -785,6 +785,19 @@ impl Game for WitchesBrewGame {
                     }
                 }
 
+                if orders_to_remove[1] == None {
+                    // only 1 order to remove
+                    self.counter_orders.remove(orders_to_remove[0].unwrap());
+                    self.counter_orders.add(self.queued_orders.pop().unwrap());
+                } else {
+                    // 2 spells to remove
+                    self.counter_orders
+                        .remove_multi([orders_to_remove[0].unwrap(), orders_to_remove[1].unwrap()]);
+
+                    self.counter_orders.add(self.queued_orders.pop().unwrap());
+                    self.counter_orders.add(self.queued_orders.pop().unwrap());
+                }
+
                 if self.plus_3_bonus_remaining > 0 {
                     self.counter_orders.get_mut(0).bonus = 3;
                     if self.plus_1_bonus_remaining > 0 {
@@ -801,12 +814,22 @@ impl Game for WitchesBrewGame {
 
             /* Remove learnt spells and create new one in their place, and update tax */
             if spells_were_learnt == true {
-                for i in 0..2 {
-                    if let Some(six) = spells_to_remove[i] {
-                        self.tome_spells.remove(six);
-                        if self.queued_spells.len() > 0 {
-                            self.tome_spells.add(self.queued_spells.pop().unwrap());
-                        }
+                if spells_to_remove[1] == None {
+                    // only 1 spell to remove
+                    self.tome_spells.remove(spells_to_remove[0].unwrap());
+                    if self.queued_spells.len() > 0 {
+                        self.tome_spells.add(self.queued_spells.pop().unwrap());
+                    }
+                } else {
+                    // 2 spells to remove
+                    self.tome_spells
+                        .remove_multi([spells_to_remove[0].unwrap(), spells_to_remove[1].unwrap()]);
+
+                    if self.queued_spells.len() > 0 {
+                        self.tome_spells.add(self.queued_spells.pop().unwrap());
+                    }
+                    if self.queued_spells.len() > 0 {
+                        self.tome_spells.add(self.queued_spells.pop().unwrap());
                     }
                 }
 
