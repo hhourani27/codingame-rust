@@ -17,19 +17,54 @@ pub struct Message {
 }
 
 #[allow(non_snake_case)]
-pub struct StackVector<T, const MAX_SIZE: usize> {
+#[derive(Clone)]
+pub struct StackVector<T: Copy + Clone + Default, const MAX_SIZE: usize> {
     pub arr: [T; MAX_SIZE],
     pub len: usize,
 }
 
-impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
+impl<T: Copy + Clone + Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
+    pub fn new() -> Self {
+        Self {
+            arr: [Default::default(); MAX_SIZE],
+            len: 0,
+        }
+    }
+
     pub fn add(&mut self, e: T) {
         self.arr[self.len] = e;
         self.len += 1;
     }
 
-    pub fn get(&self) -> &[T] {
+    pub fn slice(&self) -> &[T] {
         &self.arr[0..self.len]
+    }
+
+    pub fn slice_mut(&mut self) -> &mut [T] {
+        &mut self.arr[0..self.len]
+    }
+
+    pub fn get(&self, idx: usize) -> &T {
+        &self.arr[idx]
+    }
+
+    pub fn get_mut(&mut self, idx: usize) -> &mut T {
+        &mut self.arr[idx]
+    }
+
+    pub fn remove(&mut self, idx: usize) -> T {
+        let removed_element = self.arr[idx];
+
+        for i in idx..self.len - 1 {
+            self.arr[i] = self.arr[i + 1];
+        }
+        self.len -= 1;
+
+        removed_element
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
     }
 }
 
@@ -101,5 +136,77 @@ pub mod record {
     pub struct GameState {
         pub board: Option<Vec<Vec<String>>>,
         pub state: HashMap<String, String>,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stackvector_remove() {
+        let mut list: StackVector<u8, 10> = StackVector::new();
+        for i in 0..5 {
+            list.add(i);
+        }
+
+        assert_eq!(list.len(), 5);
+
+        let e = list.remove(2);
+
+        assert_eq!(e, 2);
+        assert_eq!(list.len(), 4);
+        assert_eq!(*list.get(0), 0);
+        assert_eq!(*list.get(1), 1);
+        assert_eq!(*list.get(2), 3);
+        assert_eq!(*list.get(3), 4);
+    }
+
+    #[test]
+    fn test_stackvector_slice_after_remove() {
+        let mut list: StackVector<u8, 10> = StackVector::new();
+        for i in 0..5 {
+            list.add(i);
+        }
+
+        assert_eq!(list.slice().len(), 5);
+        let v: Vec<u8> = list.slice().to_vec();
+        assert_vec_eq!(v, vec![0, 1, 2, 3, 4]);
+
+        list.remove(2);
+        assert_eq!(list.slice().len(), 4);
+        let v: Vec<u8> = list.slice().to_vec();
+        assert_vec_eq!(v, vec![0, 1, 3, 4]);
+    }
+
+    #[test]
+    fn test_stackvector_full_remove_last_element() {
+        let mut list: StackVector<u8, 10> = StackVector::new();
+        for i in 0..10 {
+            list.add(i);
+        }
+
+        list.remove(9);
+        assert_eq!(list.slice().len(), 9);
+        let v: Vec<u8> = list.slice().to_vec();
+        assert_vec_eq!(v, vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
+
+        list.remove(0);
+        assert_eq!(list.slice().len(), 8);
+        let v: Vec<u8> = list.slice().to_vec();
+        assert_vec_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+    }
+
+    #[test]
+    fn test_stackvector_full_remove_first_element() {
+        let mut list: StackVector<u8, 10> = StackVector::new();
+        for i in 0..10 {
+            list.add(i);
+        }
+
+        list.remove(0);
+        assert_eq!(list.slice().len(), 9);
+        let v: Vec<u8> = list.slice().to_vec();
+        assert_vec_eq!(v, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
 }

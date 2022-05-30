@@ -8,19 +8,53 @@ macro_rules! parse_input {
 }
 
 #[allow(non_snake_case)]
-pub struct StackVector<T, const MAX_SIZE: usize> {
+#[derive(Clone)]
+pub struct StackVector<T: Copy + Clone + Default, const MAX_SIZE: usize> {
     pub arr: [T; MAX_SIZE],
     pub len: usize,
 }
 
-impl<T, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
+impl<T: Copy + Clone + Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
+    pub fn new() -> Self {
+        Self {
+            arr: [Default::default(); MAX_SIZE],
+            len: 0,
+        }
+    }
+
     pub fn add(&mut self, e: T) {
         self.arr[self.len] = e;
         self.len += 1;
     }
 
-    pub fn get(&self) -> &[T] {
+    pub fn slice(&self) -> &[T] {
         &self.arr[0..self.len]
+    }
+
+    pub fn slice_mut(&mut self) -> &mut [T] {
+        &mut self.arr[0..self.len]
+    }
+
+    pub fn get(&self, idx: usize) -> &T {
+        &self.arr[idx]
+    }
+
+    pub fn get_mut(&mut self, idx: usize) -> &mut T {
+        &mut self.arr[idx]
+    }
+
+    pub fn remove(&mut self, idx: usize) -> T {
+        let removed_element = self.arr[idx];
+        for i in idx..self.len {
+            self.arr[i] = self.arr[i + 1];
+        }
+        self.len -= 1;
+
+        removed_element
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
     }
 }
 
@@ -28,30 +62,7 @@ mod game {
 
     use super::StackVector;
 
-    pub type Ingredients = [i8; 4];
-
-    #[derive(Copy, Clone)]
-    pub struct Order {
-        pub id: u32,
-        pub ingredients: Ingredients,
-        pub delta_stock: i8,
-        pub price: u8,
-    }
-
-    #[derive(Clone, Default)]
-    pub struct Spell {
-        pub id: u32,
-        pub ingredients: Ingredients,
-        pub delta_stock: i8,
-        pub active: bool,
-    }
-
-    #[derive(Clone, Default)]
-    pub struct Player {
-        pub stock: Ingredients,
-        pub empty_slots: i8,
-        pub spells: [Spell; 4],
-    }
+    const MAX_VALID_MOVES: usize = 35 + 5 + 6 + 1; // 35 CAST + 5 BREW + 6 LEARN + 1 REST
 
     #[derive(Copy, Clone, PartialEq, Debug)]
     pub enum Move {
@@ -59,81 +70,174 @@ mod game {
         WAIT,
         REST,
         BREW(u32),
-        CAST(u32),
+        CAST(u32, u8),
+        LEARN(u32),
     }
 
     impl Move {
+        fn parse_move(msg: &str) -> Move {
+            match msg {
+                "WAIT" => Move::WAIT,
+                "REST" => Move::REST,
+                _ => match &msg[0..5] {
+                    "BREW " => Move::BREW(parse_input!(msg[5..], u32)),
+                    "LEARN" => Move::LEARN(parse_input!(msg[6..], u32)),
+                    "CAST " => {
+                        let s = msg.split(" ").collect::<Vec<_>>();
+                        match s.len() {
+                            2 => Move::CAST(parse_input!(s[1], u32), 1),
+                            3 => Move::CAST(parse_input!(s[1], u32), parse_input!(s[2], u8)),
+                            _ => panic!("Couldn't parse correctly CAST move"),
+                        }
+                    }
+                    _ => {
+                        panic!();
+                    }
+                },
+            }
+        }
+
         pub fn to_string(&self) -> String {
             match self {
                 Move::NONE => format!("None"),
                 Move::WAIT => format!("WAIT"),
                 Move::REST => format!("REST"),
                 Move::BREW(i) => format!("BREW {}", i),
-                Move::CAST(i) => format!("CAST {}", i),
+                Move::CAST(i, 1) => format!("CAST {}", i),
+                Move::CAST(i, t) => format!("CAST {} {}", i, t),
+                Move::LEARN(i) => format!("LEARN {}", i),
             }
         }
     }
 
-    fn can_fulfill_order(order: &Order, stock: &Ingredients) -> bool {
-        stock[0] >= -order.ingredients[0]
-            && stock[1] >= -order.ingredients[1]
-            && stock[2] >= -order.ingredients[2]
-            && stock[3] >= -order.ingredients[3]
+    impl Default for Move {
+        fn default() -> Self {
+            Move::NONE
+        }
     }
 
-    fn can_cast_spell(spell: &Spell, stock: &Ingredients, empty_slots: i8) -> bool {
-        if spell.delta_stock > empty_slots {
-            return false;
-        }
+    pub type Ingredients = [i8; 4];
+
+    #[derive(Copy, Clone, Default)]
+    pub struct Order {
+        pub id: u32,
+        pub recipe: Ingredients,
+        pub price: u8,
+        pub bonus: u8,
+    }
+
+    #[derive(Copy, Clone, Default, Debug)]
+    pub struct Spell {
+        pub id: u32,
+        pub recipe: Ingredients,
+        pub delta_stock: i8,
+        pub tax: u8,
+        pub repeatable: bool,
+        pub active: bool,
+    }
+
+    fn can_fulfill_order(order: &Order, stock: &Ingredients) -> bool {
+        stock[0] >= -order.recipe[0]
+            && stock[1] >= -order.recipe[1]
+            && stock[2] >= -order.recipe[2]
+            && stock[3] >= -order.recipe[3]
+    }
+
+    fn can_cast_spell(spell: &Spell, stock: &Ingredients) -> bool {
         if spell.active == false {
             return false;
         }
 
+        let empty_slots = 10 - stock[0] - stock[1] - stock[2] - stock[3];
+
+        if spell.delta_stock > empty_slots {
+            return false;
+        }
         for i in 0..4 {
-            if spell.ingredients[i] < 0 && stock[i] < -spell.ingredients[i] {
+            if spell.recipe[i] < 0 && stock[i] < -spell.recipe[i] {
                 return false;
             }
         }
-
         true
     }
 
+    fn cast_and_update_stock(stock: &mut Ingredients, recipe: &Ingredients, times: u8) {
+        for _ in 0..times {
+            for i in 0..4 {
+                stock[i] += recipe[i];
+            }
+        }
+    }
+
+    /* Return how many times the spell can be cast */
+    fn how_many_times_can_cast_spell(spell: &Spell, stock: &Ingredients) -> u8 {
+        if spell.active == false {
+            return 0;
+        }
+
+        if spell.repeatable == false {
+            match can_cast_spell(spell, stock) {
+                true => 1,
+                false => 0,
+            }
+        } else {
+            let mut times = 0;
+            let mut stock = stock.clone();
+
+            while can_cast_spell(spell, &stock) {
+                times += 1;
+                cast_and_update_stock(&mut stock, &spell.recipe, 1);
+            }
+
+            times
+        }
+    }
+
     pub fn valid_moves(
-        orders: &[Option<Order>; 5],
-        spells: &[Spell; 4],
+        orders: &[Order],
+        tome_spells: &[Spell],
+        player_spells: &[Spell],
         stock: &Ingredients,
-        empty_slots: i8,
-    ) -> StackVector<Move, 10> {
+    ) -> StackVector<Move, MAX_VALID_MOVES> {
         // There's at max 10 possible moves : 5 orders, 4 spells + REST
-        let mut valid_moves: StackVector<Move, 10> = StackVector {
-            arr: [Move::NONE; 10],
+        let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector {
+            arr: [Move::NONE; MAX_VALID_MOVES],
             len: 0,
         };
 
+        /* BREW moves */
         // Check which order the player can fulfill and add them as a valid move
         for order in orders.iter() {
-            if let Some(o) = order {
-                if can_fulfill_order(o, stock) {
-                    valid_moves.add(Move::BREW(o.id));
-                }
+            if can_fulfill_order(order, stock) {
+                valid_moves.add(Move::BREW(order.id));
             }
         }
 
-        // Check which spell the player can fulfill and add them as a valid move
+        /* CAST moves */
+        // Check which spell the player can cast and add them as a valid move
         // in the meantime check if there are inactive spells
         let mut all_spells_are_active = true;
-        for spell in spells.iter() {
-            if spell.active == false {
+        for sp in player_spells.iter() {
+            if sp.active == false {
                 all_spells_are_active = false;
             } else {
-                if can_cast_spell(spell, stock, empty_slots) {
-                    valid_moves.add(Move::CAST(spell.id));
+                let times_can_cast_spell = how_many_times_can_cast_spell(sp, stock);
+                if times_can_cast_spell > 0 {
+                    valid_moves.add(Move::CAST(sp.id, times_can_cast_spell));
                 }
             }
         }
 
+        /* REST move */
         if all_spells_are_active == false {
             valid_moves.add(Move::REST);
+        }
+
+        /* LEARN moves */
+        for (t, spell) in tome_spells.iter().enumerate() {
+            if t as u8 <= stock[0] as u8 {
+                valid_moves.add(Move::LEARN(spell.id));
+            }
         }
 
         // At the end, if there's no valid moves, we just send a wait
@@ -155,12 +259,10 @@ pub fn play(
     // game loop
     while ctr_rcv.recv().unwrap() == true {
         /* Initialize players & orders */
-        let mut my_player: game::Player = Default::default();
-        let mut other_player: game::Player = Default::default();
-        let mut orders: [Option<game::Order>; 5] = [None; 5];
-        let mut order_count = 0;
-        let mut my_spell_count = 0;
-        let mut other_spell_count = 0;
+        let mut orders: Vec<game::Order> = Vec::new();
+        let mut tome_spells_t: [Option<game::Spell>; 6] = [None; 6];
+        let mut my_spells: Vec<game::Spell> = Vec::new();
+        let mut my_stock: game::Ingredients = [0, 0, 0, 0];
 
         let mut input_line = String::new();
         input_line = msg_rcv.recv().unwrap();
@@ -183,35 +285,47 @@ pub fn play(
 
             /* READ INPUT AND UPDATE STATE */
             if action_type == String::from("BREW") {
-                orders[order_count] = Some(game::Order {
+                orders.push(game::Order {
                     id: action_id,
-                    ingredients: [delta_0, delta_1, delta_2, delta_3],
-                    delta_stock: delta_0 + delta_1 + delta_2 + delta_3,
-                    price: price,
+                    recipe: [delta_0, delta_1, delta_2, delta_3],
+                    price: price - tome_index as u8,
+                    bonus: tome_index as u8,
                 });
-                order_count += 1;
             } else if action_type == String::from("CAST") {
-                my_player.spells[my_spell_count] = game::Spell {
+                my_spells.push(game::Spell {
                     id: action_id,
-                    ingredients: [delta_0, delta_1, delta_2, delta_3],
+                    recipe: [delta_0, delta_1, delta_2, delta_3],
                     delta_stock: delta_0 + delta_1 + delta_2 + delta_3,
+                    tax: 0,
+                    repeatable: match repeatable {
+                        1 => true,
+                        0 => false,
+                        _ => panic!(),
+                    },
                     active: match castable {
                         1 => true,
-                        _ => false,
+                        0 => false,
+                        _ => panic!(),
                     },
-                };
-                my_spell_count += 1;
+                })
             } else if action_type == String::from("OPPONENT_CAST") {
-                other_player.spells[other_spell_count] = game::Spell {
+            } else if action_type == String::from("LEARN") {
+                tome_spells_t[tome_index as usize] = Some(game::Spell {
                     id: action_id,
-                    ingredients: [delta_0, delta_1, delta_2, delta_3],
+                    recipe: [delta_0, delta_1, delta_2, delta_3],
                     delta_stock: delta_0 + delta_1 + delta_2 + delta_3,
+                    tax: tax_count as u8,
+                    repeatable: match repeatable {
+                        1 => true,
+                        0 => false,
+                        _ => panic!(),
+                    },
                     active: match castable {
                         1 => true,
-                        _ => false,
+                        0 => false,
+                        _ => panic!(),
                     },
-                };
-                other_spell_count += 1;
+                });
             }
         }
         for i in 0..2 as usize {
@@ -225,22 +339,21 @@ pub fn play(
             let score = parse_input!(inputs[4], i32); // amount of rupees
 
             if i == 0 {
-                my_player.stock = [inv_0, inv_1, inv_2, inv_3];
-                my_player.empty_slots = 10 - (inv_0 + inv_1 + inv_2 + inv_3);
-            } else {
-                other_player.stock = [inv_0, inv_1, inv_2, inv_3];
-                other_player.empty_slots = 10 - (inv_0 + inv_1 + inv_2 + inv_3);
+                my_stock = [inv_0, inv_1, inv_2, inv_3];
             }
         }
 
-        let valid_moves = game::valid_moves(
-            &orders,
-            &my_player.spells,
-            &my_player.stock,
-            my_player.empty_slots,
-        );
+        let mut tome_spells: Vec<game::Spell> = Vec::new();
+        for i in 0..6 {
+            if tome_spells_t[i].is_none() {
+                break;
+            }
+            tome_spells.push(tome_spells_t[i].unwrap().clone())
+        }
 
-        let chosen_move = valid_moves.get().choose(&mut rand::thread_rng()).unwrap();
+        let valid_moves = game::valid_moves(&orders, &tome_spells, &my_spells, &my_stock);
+
+        let chosen_move = valid_moves.slice().choose(&mut rand::thread_rng()).unwrap();
         /*eprintln!(
             "valid moves: {}",
             valid_moves

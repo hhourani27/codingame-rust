@@ -10,14 +10,14 @@ use std::time::Instant;
 fn main() {
     const STATS: bool = true;
     const RECORD: bool = true;
-    const RUN_PERMUT: bool = true;
-    const RUNS: u32 = 50;
+    const RUN_PERMUT: bool = false;
+    const RUNS: u32 = 10;
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/fall_2020_witches_brew/output";
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_mcts_1::play,
+            func: &player_random::play,
             params: None,
         },
         PlayerPlayFunction {
