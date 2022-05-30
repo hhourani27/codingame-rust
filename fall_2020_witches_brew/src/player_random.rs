@@ -223,7 +223,9 @@ mod game {
             } else {
                 let times_can_cast_spell = how_many_times_can_cast_spell(sp, stock);
                 if times_can_cast_spell > 0 {
-                    valid_moves.add(Move::CAST(sp.id, times_can_cast_spell));
+                    for n in 1..=times_can_cast_spell {
+                        valid_moves.add(Move::CAST(sp.id, n));
+                    }
                 }
             }
         }

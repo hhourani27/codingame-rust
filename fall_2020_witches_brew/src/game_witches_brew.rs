@@ -401,7 +401,9 @@ impl WitchesBrewGame {
                 let times_can_cast_spell =
                     WitchesBrewGame::how_many_times_can_cast_spell(sp, stock);
                 if times_can_cast_spell > 0 {
-                    valid_moves.add(Move::CAST(sp.id, times_can_cast_spell));
+                    for n in 1..=times_can_cast_spell {
+                        valid_moves.add(Move::CAST(sp.id, n));
+                    }
                 }
             }
         }
@@ -1612,6 +1614,53 @@ mod tests {
             Move::CAST(player_spells[3].id, 1),
             Move::CAST(player_spells[5].id, 1),
             Move::LEARN(tome[0].id),
+        ];
+        assert_vec_eq!(valid_moves.slice(), &expected_moves);
+    }
+
+    #[test]
+    fn test_valid_moves_multicast() {
+        /* Round 1 */
+        let player_stock = [0, 0, 1, 2];
+        let mut player_spells = [
+            WitchesBrewGame::find_spell(&[2, 0, 0, 0]).unwrap(),
+            WitchesBrewGame::find_spell(&[-1, 1, 0, 0]).unwrap(),
+            WitchesBrewGame::find_spell(&[0, -1, 1, 0]).unwrap(),
+            WitchesBrewGame::find_spell(&[0, 0, -1, 1]).unwrap(),
+            WitchesBrewGame::find_spell(&[1, 0, 1, 0]).unwrap(),
+            WitchesBrewGame::find_spell(&[-3, 0, 0, 1]).unwrap(),
+            WitchesBrewGame::find_spell(&[2, 2, 0, -1]).unwrap(),
+        ];
+        player_spells[0].active = false;
+        player_spells[1].active = false;
+        player_spells[2].active = false;
+        player_spells[3].active = false;
+        player_spells[4].active = false;
+        player_spells[5].active = false;
+        let tome = [
+            WitchesBrewGame::find_spell(&[0, 2, 0, 0]).unwrap(),
+            WitchesBrewGame::find_spell(&[3, -2, 1, 0]).unwrap(),
+            WitchesBrewGame::find_spell(&[0, 3, 2, -2]).unwrap(),
+            WitchesBrewGame::find_spell(&[2, -2, 0, 1]).unwrap(),
+            WitchesBrewGame::find_spell(&[-4, 0, 1, 1]).unwrap(),
+            WitchesBrewGame::find_spell(&[-2, 0, -1, 2]).unwrap(),
+        ];
+        let orders = [
+            WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap(),
+            WitchesBrewGame::find_order(&[0, -2, -2, -2]).unwrap(),
+            WitchesBrewGame::find_order(&[0, -2, -3, 0]).unwrap(),
+            WitchesBrewGame::find_order(&[-1, -1, -1, -1]).unwrap(),
+            WitchesBrewGame::find_order(&[-3, 0, -2, 0]).unwrap(),
+        ];
+
+        let valid_moves =
+            WitchesBrewGame::valid_moves(&orders, &tome, &player_spells, &player_stock);
+
+        let expected_moves = [
+            Move::CAST(player_spells[6].id, 1),
+            Move::CAST(player_spells[6].id, 2),
+            Move::LEARN(tome[0].id),
+            Move::REST,
         ];
         assert_vec_eq!(valid_moves.slice(), &expected_moves);
     }
