@@ -1006,7 +1006,7 @@ impl Game for WitchesBrewGame {
                 "[{} | {} | 🔸{}{}]",
                 order.id,
                 {
-                    let tiers = ['🐋', '🍏', '🦧', '💛'];
+                    let tiers = ['🔵', '🟢', '🟠', '🟡'];
                     let mut s = String::from("");
                     for i in 0..order.recipe.len() {
                         if order.recipe[i] < 0 {
@@ -1028,8 +1028,8 @@ impl Game for WitchesBrewGame {
             format!(
                 "[{}{} {} | {} | {}]",
                 match spell.active {
-                    true => "🟢",
-                    false => "⚪",
+                    true => "",
+                    false => "❌",
                 },
                 match spell.repeatable {
                     true => "🔁",
@@ -1037,7 +1037,7 @@ impl Game for WitchesBrewGame {
                 },
                 spell.id,
                 {
-                    let tiers = ['🐋', '🍏', '🦧', '💛'];
+                    let tiers = ['🔵', '🟢', '🟠', '🟡'];
                     let mut s = String::from("");
                     for i in 0..spell.recipe.len() {
                         if spell.recipe[i] < 0 {
@@ -1051,8 +1051,8 @@ impl Game for WitchesBrewGame {
                     s
                 },
                 match spell.tax {
-                    1 => String::from("🐋"),
-                    2.. => format!("🐋x{}", spell.tax),
+                    1 => String::from("🔹"),
+                    2.. => format!("🔹x{}", spell.tax),
                     _ => String::from(""),
                 }
             )
@@ -1083,7 +1083,7 @@ impl Game for WitchesBrewGame {
 
             fn fmt_stock(ingredients: &Ingredients) -> String {
                 format!(
-                    "[🐋: {}, 🍏: {}, 🦧: {}, 💛: {}]",
+                    "[🔵: {}, 🟢: {}, 🟠: {}, 🟡: {}]",
                     ingredients[0], ingredients[1], ingredients[2], ingredients[3]
                 )
             }
