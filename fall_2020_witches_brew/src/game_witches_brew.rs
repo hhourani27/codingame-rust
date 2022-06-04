@@ -372,13 +372,13 @@ impl WitchesBrewGame {
 
     fn update_counter_orders(
         counter_orders: &mut StackVector<Order, 5>,
-        orders_to_remove_pos: &[Option<usize>; 2],
         queued_orders: &mut Vec<Order>,
         plus_3_bonus_remaining: &mut u8,
         plus_1_bonus_remaining: &mut u8,
+        orders_to_remove_pos: &[Option<usize>; 2],
     ) {
         /* First remove and determine how many orders & bonuses were used */
-        let mut removed_orders_count = 0;
+        let removed_orders_count;
 
         match orders_to_remove_pos {
             [None, None] => return,
@@ -426,7 +426,7 @@ impl WitchesBrewGame {
         }
 
         /* Replace removed orders if possible */
-        for i in 0..removed_orders_count {
+        for _ in 0..removed_orders_count {
             if queued_orders.len() > 0 {
                 counter_orders.add(queued_orders.pop().unwrap());
             }
@@ -458,6 +458,48 @@ impl WitchesBrewGame {
 
             if counter_orders.len() >= 2 {
                 counter_orders.get_mut(1).bonus = 0;
+            }
+        }
+    }
+
+    fn update_tome_spells(
+        tome_spells: &mut StackVector<Spell, 6>,
+        queued_spells: &mut Vec<Spell>,
+        spells_to_remove_pos: &[Option<usize>; 2],
+        spell_tax_payed: &[Option<usize>; 2],
+    ) {
+        /* First remove and determine how many spells were learnt */
+        let learnt_spells_count;
+
+        match spells_to_remove_pos {
+            [None, None] => return,
+            [Some(s), None] | [None, Some(s)] => {
+                tome_spells.remove(*s);
+                learnt_spells_count = 1;
+            }
+            [Some(s1), Some(s2)] if *s1 == *s2 => {
+                tome_spells.remove(*s1);
+                learnt_spells_count = 1;
+            }
+            [Some(s1), Some(s2)] => {
+                tome_spells.remove_multi([*s1, *s2]);
+                learnt_spells_count = 2;
+            }
+        }
+
+        /* Replace removed spells if possible */
+        for _ in 0..learnt_spells_count {
+            if queued_spells.len() > 0 {
+                tome_spells.add(queued_spells.pop().unwrap());
+            }
+        }
+
+        /* Pay taxes */
+        for p in 0..2 {
+            if let Some(t) = spell_tax_payed[p] {
+                for s in 0..cmp::min(t, tome_spells.len()) {
+                    tome_spells.get_mut(s).tax += 1;
+                }
             }
         }
     }
@@ -786,7 +828,7 @@ impl Game for WitchesBrewGame {
             let mut orders_were_fullfilled = false;
             let mut orders_to_remove_pos: [Option<usize>; 2] = [None, None];
             let mut spells_were_learnt = false;
-            let mut spells_to_remove: [Option<usize>; 2] = [None, None];
+            let mut spells_to_remove_pos: [Option<usize>; 2] = [None, None];
             let mut spell_tax_payed: [Option<usize>; 2] = [None, None];
 
             for (pid, player) in self.players.iter_mut().enumerate() {
@@ -861,11 +903,7 @@ impl Game for WitchesBrewGame {
                         }
                         // Save learnt spells, so that I replace them later and deal with the tax
                         spells_were_learnt = true;
-                        if spells_to_remove[0] == None {
-                            spells_to_remove[0] = Some(learnt_spell_pos);
-                        } else if learnt_spell_pos != spells_to_remove[0].unwrap() {
-                            spells_to_remove[1] = Some(learnt_spell_pos);
-                        }
+                        spells_to_remove_pos[pid] = Some(learnt_spell_pos);
                         spell_tax_payed[pid] = Some(learnt_spell_pos);
                     }
                     Move::REST => {
@@ -881,41 +919,21 @@ impl Game for WitchesBrewGame {
             if orders_were_fullfilled == true {
                 WitchesBrewGame::update_counter_orders(
                     &mut self.counter_orders,
-                    &orders_to_remove_pos,
                     &mut self.queued_orders,
                     &mut self.plus_3_bonus_remaining,
                     &mut self.plus_1_bonus_remaining,
+                    &orders_to_remove_pos,
                 )
             }
 
             /* Remove learnt spells and create new one in their place, and update tax */
             if spells_were_learnt == true {
-                if spells_to_remove[1] == None {
-                    // only 1 spell to remove
-                    self.tome_spells.remove(spells_to_remove[0].unwrap());
-                    if self.queued_spells.len() > 0 {
-                        self.tome_spells.add(self.queued_spells.pop().unwrap());
-                    }
-                } else {
-                    // 2 spells to remove
-                    self.tome_spells
-                        .remove_multi([spells_to_remove[0].unwrap(), spells_to_remove[1].unwrap()]);
-
-                    if self.queued_spells.len() > 0 {
-                        self.tome_spells.add(self.queued_spells.pop().unwrap());
-                    }
-                    if self.queued_spells.len() > 0 {
-                        self.tome_spells.add(self.queued_spells.pop().unwrap());
-                    }
-                }
-
-                for i in 0..2 {
-                    if let Some(t) = spell_tax_payed[i] {
-                        for i in 0..t {
-                            self.tome_spells.get_mut(i).tax += 1;
-                        }
-                    }
-                }
+                WitchesBrewGame::update_tome_spells(
+                    &mut self.tome_spells,
+                    &mut self.queued_spells,
+                    &spells_to_remove_pos,
+                    &spell_tax_payed,
+                );
             }
 
             /* 3.3 Check terminal condition */
@@ -2061,10 +2079,10 @@ mod tests {
 
         WitchesBrewGame::update_counter_orders(
             &mut counter_orders,
-            &orders_to_remove_pos,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
             &mut plus_1_bonus_remaining,
+            &orders_to_remove_pos,
         );
 
         /* */
@@ -2101,12 +2119,11 @@ mod tests {
 
         WitchesBrewGame::update_counter_orders(
             &mut counter_orders,
-            &orders_to_remove_pos,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
             &mut plus_1_bonus_remaining,
+            &orders_to_remove_pos,
         );
-
         /* */
         assert_eq!(plus_3_bonus_remaining, 2);
         assert_eq!(plus_1_bonus_remaining, 4);
@@ -2140,10 +2157,10 @@ mod tests {
 
         WitchesBrewGame::update_counter_orders(
             &mut counter_orders,
-            &orders_to_remove_pos,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
             &mut plus_1_bonus_remaining,
+            &orders_to_remove_pos,
         );
 
         /* */
@@ -2181,10 +2198,10 @@ mod tests {
 
         WitchesBrewGame::update_counter_orders(
             &mut counter_orders,
-            &orders_to_remove_pos,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
             &mut plus_1_bonus_remaining,
+            &orders_to_remove_pos,
         );
 
         /* */
@@ -2220,10 +2237,10 @@ mod tests {
 
         WitchesBrewGame::update_counter_orders(
             &mut counter_orders,
-            &orders_to_remove_pos,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
             &mut plus_1_bonus_remaining,
+            &orders_to_remove_pos,
         );
 
         /* */
@@ -2262,10 +2279,10 @@ mod tests {
 
         WitchesBrewGame::update_counter_orders(
             &mut counter_orders,
-            &orders_to_remove_pos,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
             &mut plus_1_bonus_remaining,
+            &orders_to_remove_pos,
         );
 
         /* */
@@ -2302,15 +2319,72 @@ mod tests {
 
         WitchesBrewGame::update_counter_orders(
             &mut counter_orders,
-            &orders_to_remove_pos,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
             &mut plus_1_bonus_remaining,
+            &orders_to_remove_pos,
         );
 
         /* */
         assert_eq!(plus_3_bonus_remaining, 1);
         assert_eq!(plus_1_bonus_remaining, 1);
         assert_eq!(counter_orders.len(), 0);
+    }
+
+    #[test]
+    fn test_update_tome_spells_no_spells_left() {
+        let mut queued_spells = WitchesBrewGame::get_tome_spells();
+
+        let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
+        let mut tome_spells_ids: [u32; 6] = [0; 6];
+
+        for i in 0..2 {
+            let spell = queued_spells.pop().unwrap();
+            tome_spells_ids[i] = spell.id;
+            tome_spells.add(spell);
+        }
+
+        queued_spells.clear();
+
+        let spells_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
+        let spell_tax_payed: [Option<usize>; 2] = [Some(0), Some(1)];
+
+        WitchesBrewGame::update_tome_spells(
+            &mut tome_spells,
+            &mut queued_spells,
+            &spells_to_remove_pos,
+            &spell_tax_payed,
+        );
+
+        assert_eq!(tome_spells.len(), 0);
+    }
+
+    #[test]
+    fn test_update_tome_spells_no_spell_to_place_tax() {
+        let mut queued_spells = WitchesBrewGame::get_tome_spells();
+
+        let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
+        let mut tome_spells_ids: [u32; 6] = [0; 6];
+
+        for i in 0..3 {
+            let spell = queued_spells.pop().unwrap();
+            tome_spells_ids[i] = spell.id;
+            tome_spells.add(spell);
+        }
+
+        queued_spells.clear();
+
+        let spells_to_remove_pos: [Option<usize>; 2] = [Some(2), Some(1)];
+        let spell_tax_payed: [Option<usize>; 2] = [Some(2), Some(1)];
+
+        WitchesBrewGame::update_tome_spells(
+            &mut tome_spells,
+            &mut queued_spells,
+            &spells_to_remove_pos,
+            &spell_tax_payed,
+        );
+
+        assert_eq!(tome_spells.len(), 1);
+        assert_eq!(tome_spells.get(0).tax, 2);
     }
 }
