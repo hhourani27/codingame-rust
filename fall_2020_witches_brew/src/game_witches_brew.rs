@@ -212,6 +212,7 @@ impl WitchesBrewGame {
         ]
     }
 
+    #[allow(dead_code)]
     fn find_spell(recipe: &Ingredients) -> Option<Spell> {
         for spell in WitchesBrewGame::get_tome_spells().iter() {
             if spell.recipe == *recipe {
@@ -279,6 +280,7 @@ impl WitchesBrewGame {
             .collect::<Vec<Order>>()
     }
 
+    #[allow(dead_code)]
     fn find_order(recipe: &Ingredients) -> Option<Order> {
         for order in WitchesBrewGame::get_all_orders().iter() {
             if order.recipe == *recipe {
@@ -562,24 +564,26 @@ impl WitchesBrewGame {
         valid_moves
     }
 
+    #[allow(dead_code)]
     fn new_init(
         players: [Player; 2],
         tome_spells: StackVector<Spell, 6>,
         counter_orders: StackVector<Order, 5>,
         plus_3_bonus_remaining: u8,
         plus_1_bonus_remaining: u8,
+        turn: u8,
     ) -> Self {
         Self {
-            players: players,
+            players,
             queued_orders: Vec::new(),
-            counter_orders: counter_orders,
-            plus_3_bonus_remaining: plus_3_bonus_remaining,
-            plus_1_bonus_remaining: plus_1_bonus_remaining,
+            counter_orders,
+            plus_3_bonus_remaining,
+            plus_1_bonus_remaining,
             queued_spells: Vec::new(),
-            tome_spells: tome_spells,
+            tome_spells,
             active: true,
             active_player: 0,
-            turn: 0,
+            turn,
             winners: None,
         }
     }
@@ -1695,7 +1699,7 @@ mod tests {
 
         /* Round 17 */
         let player_stock = [0, 3, 1, 0];
-        let mut player_spells = [
+        let player_spells = [
             WitchesBrewGame::find_spell(&[2, 0, 0, 0]).unwrap(),
             WitchesBrewGame::find_spell(&[-1, 1, 0, 0]).unwrap(),
             WitchesBrewGame::find_spell(&[0, -1, 1, 0]).unwrap(),
@@ -1820,7 +1824,7 @@ mod tests {
         counter_orders.add(WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap());
         counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -3, -2]).unwrap());
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 3, 3);
+        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 3, 3, 0);
 
         game.play(format!("LEARN {}", learned_spell_id));
         game.play(format!("LEARN {}", learned_spell_id));
@@ -1884,7 +1888,7 @@ mod tests {
         counter_orders.add(WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap());
         counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -3, -2]).unwrap());
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 3, 3);
+        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 3, 3, 0);
 
         game.play(format!("LEARN {}", learned_spell_id));
         game.play(format!("LEARN {}", learned_spell_id));
@@ -1933,7 +1937,7 @@ mod tests {
         let earned_rupees = counter_orders.get(0).price;
         let fullfilled_order_id = counter_orders.get(0).id;
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 4, 4);
+        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 4, 4, 0);
 
         game.play(format!("BREW {}", fullfilled_order_id));
         game.play(format!("BREW {}", fullfilled_order_id));
@@ -1985,7 +1989,7 @@ mod tests {
         let earned_rupees = counter_orders.get(0).price;
         let fullfilled_order_id = counter_orders.get(0).id;
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 2, 4);
+        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 2, 4, 0);
 
         game.play(format!("BREW {}", fullfilled_order_id));
         game.play(format!("BREW {}", fullfilled_order_id));
@@ -2041,7 +2045,7 @@ mod tests {
         let fullfilled_order0_id = counter_orders.get(0).id;
         let fullfilled_order1_id = counter_orders.get(1).id;
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 1, 1);
+        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 1, 1, 0);
 
         game.play(format!("BREW {}", fullfilled_order0_id));
         game.play(format!("BREW {}", fullfilled_order1_id));

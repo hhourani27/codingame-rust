@@ -5,6 +5,7 @@ use common::Game;
 use game_witches_brew::WitchesBrewGame;
 mod player_mcts_1;
 mod player_random;
+mod player_random_brewer;
 use std::time::Instant;
 
 fn main() {
@@ -21,7 +22,7 @@ fn main() {
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_random::play,
+            func: &player_random_brewer::play,
             params: None,
         },
     ];
