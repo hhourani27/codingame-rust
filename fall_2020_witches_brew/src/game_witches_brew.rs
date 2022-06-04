@@ -943,6 +943,7 @@ impl Game for WitchesBrewGame {
             if player0.brewed_potions_count == 6
                 || player1.brewed_potions_count == 6
                 || self.turn == 100
+                || (self.players[0].move_ == Move::WAIT && self.players[1].move_ == Move::WAIT)
             {
                 self.active = false;
 

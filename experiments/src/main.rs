@@ -192,8 +192,8 @@ fn main() {
                     for spell in all_spells.iter() {
                         let times = how_many_times_can_cast_spell(spell, &stock);
                         castable_spell_count += times;
-                        if times > 0 {
-                            castable_spells.push(Move::CAST(spell.id, times));
+                        for t in 0..times {
+                            castable_spells.push(Move::CAST(spell.id, t));
                         }
                     }
 
