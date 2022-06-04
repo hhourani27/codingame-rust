@@ -370,6 +370,98 @@ impl WitchesBrewGame {
         }
     }
 
+    fn update_counter_orders(
+        counter_orders: &mut StackVector<Order, 5>,
+        orders_to_remove_pos: &[Option<usize>; 2],
+        queued_orders: &mut Vec<Order>,
+        plus_3_bonus_remaining: &mut u8,
+        plus_1_bonus_remaining: &mut u8,
+    ) {
+        /* First remove and determine how many orders & bonuses were used */
+        let mut removed_orders_count = 0;
+
+        match orders_to_remove_pos {
+            [None, None] => return,
+            [Some(o), None] | [None, Some(o)] => {
+                removed_orders_count = 1;
+                match counter_orders.get(*o).bonus {
+                    3 => {
+                        *plus_3_bonus_remaining -= 1;
+                    }
+                    1 => {
+                        *plus_1_bonus_remaining -= 1;
+                    }
+                    _ => {}
+                }
+                counter_orders.remove(*o);
+            }
+            [Some(o1), Some(o2)] if *o1 == *o2 => {
+                removed_orders_count = 1;
+                match counter_orders.get(*o1).bonus {
+                    3 => {
+                        *plus_3_bonus_remaining = plus_3_bonus_remaining.saturating_sub(2);
+                    }
+                    1 => {
+                        *plus_1_bonus_remaining = plus_1_bonus_remaining.saturating_sub(2);
+                    }
+                    _ => {}
+                }
+                counter_orders.remove(*o1);
+            }
+            [Some(o1), Some(o2)] => {
+                removed_orders_count = 2;
+                for o in [o1, o2].iter() {
+                    match counter_orders.get(**o).bonus {
+                        3 => {
+                            *plus_3_bonus_remaining -= 1;
+                        }
+                        1 => {
+                            *plus_1_bonus_remaining -= 1;
+                        }
+                        _ => {}
+                    }
+                }
+                counter_orders.remove_multi([*o1, *o2]);
+            }
+        }
+
+        /* Replace removed orders if possible */
+        for i in 0..removed_orders_count {
+            if queued_orders.len() > 0 {
+                counter_orders.add(queued_orders.pop().unwrap());
+            }
+        }
+
+        /* Update bonuses if possible */
+        if *plus_3_bonus_remaining > 0 {
+            if counter_orders.len() >= 1 {
+                counter_orders.get_mut(0).bonus = 3;
+            }
+
+            if *plus_1_bonus_remaining > 0 {
+                if counter_orders.len() >= 2 {
+                    counter_orders.get_mut(1).bonus = 1;
+                }
+            }
+        } else if plus_1_bonus_remaining > &mut 0 {
+            if counter_orders.len() >= 1 {
+                counter_orders.get_mut(0).bonus = 1;
+            }
+
+            if counter_orders.len() >= 2 {
+                counter_orders.get_mut(1).bonus = 0;
+            }
+        } else {
+            if counter_orders.len() >= 1 {
+                counter_orders.get_mut(0).bonus = 0;
+            }
+
+            if counter_orders.len() >= 2 {
+                counter_orders.get_mut(1).bonus = 0;
+            }
+        }
+    }
+
     fn valid_moves(
         orders: &[Order],
         tome_spells: &[Spell],
@@ -692,7 +784,7 @@ impl Game for WitchesBrewGame {
             /* 3.2 Update the state */
             // For each player move
             let mut orders_were_fullfilled = false;
-            let mut orders_to_remove: [Option<usize>; 2] = [None, None];
+            let mut orders_to_remove_pos: [Option<usize>; 2] = [None, None];
             let mut spells_were_learnt = false;
             let mut spells_to_remove: [Option<usize>; 2] = [None, None];
             let mut spell_tax_payed: [Option<usize>; 2] = [None, None];
@@ -711,17 +803,6 @@ impl Game for WitchesBrewGame {
                         // Update the player's potion count
                         player.brewed_potions_count += 1;
 
-                        // check if there's a bonus
-                        match fullfilled_order.bonus {
-                            3 => {
-                                self.plus_3_bonus_remaining -= 1;
-                            }
-                            1 => {
-                                self.plus_1_bonus_remaining -= 1;
-                            }
-                            _ => {}
-                        }
-
                         // Update the player's rupees
                         player.rupees +=
                             fullfilled_order.price as u32 + fullfilled_order.bonus as u32;
@@ -734,11 +815,7 @@ impl Game for WitchesBrewGame {
 
                         // Save fullfilled orders so that I remove them later
                         orders_were_fullfilled = true;
-                        if orders_to_remove[0] == None {
-                            orders_to_remove[0] = Some(fullfilled_order_pos);
-                        } else if fullfilled_order_pos != orders_to_remove[0].unwrap() {
-                            orders_to_remove[1] = Some(fullfilled_order_pos);
-                        }
+                        orders_to_remove_pos[pid] = Some(fullfilled_order_pos);
                     }
                     Move::CAST(spell_id, times) => {
                         let cast_spell_idx =
@@ -802,37 +879,13 @@ impl Game for WitchesBrewGame {
 
             /* Remove fullfilled orders and create new one in their place, and update bonus */
             if orders_were_fullfilled == true {
-                if orders_to_remove[1] == None {
-                    // only 1 order to remove
-                    self.counter_orders.remove(orders_to_remove[0].unwrap());
-                    if self.queued_orders.len() > 0 {
-                        self.counter_orders.add(self.queued_orders.pop().unwrap());
-                    }
-                } else {
-                    // 2 orders to remove
-                    self.counter_orders
-                        .remove_multi([orders_to_remove[0].unwrap(), orders_to_remove[1].unwrap()]);
-
-                    if self.queued_orders.len() > 0 {
-                        self.counter_orders.add(self.queued_orders.pop().unwrap());
-                    }
-                    if self.queued_orders.len() > 0 {
-                        self.counter_orders.add(self.queued_orders.pop().unwrap());
-                    }
-                }
-
-                if self.plus_3_bonus_remaining > 0 {
-                    self.counter_orders.get_mut(0).bonus = 3;
-                    if self.plus_1_bonus_remaining > 0 {
-                        self.counter_orders.get_mut(1).bonus = 1;
-                    }
-                } else if self.plus_1_bonus_remaining > 0 {
-                    self.counter_orders.get_mut(0).bonus = 1;
-                    self.counter_orders.get_mut(1).bonus = 0;
-                } else {
-                    self.counter_orders.get_mut(0).bonus = 0;
-                    self.counter_orders.get_mut(0).bonus = 0;
-                }
+                WitchesBrewGame::update_counter_orders(
+                    &mut self.counter_orders,
+                    &orders_to_remove_pos,
+                    &mut self.queued_orders,
+                    &mut self.plus_3_bonus_remaining,
+                    &mut self.plus_1_bonus_remaining,
+                )
             }
 
             /* Remove learnt spells and create new one in their place, and update tax */
@@ -1983,5 +2036,281 @@ mod tests {
         assert_eq!(game.plus_1_bonus_remaining, 0);
         assert_eq!(game.counter_orders.get(0).bonus, 0);
         assert_eq!(game.counter_orders.get(1).bonus, 0);
+    }
+
+    #[test]
+    fn test_update_counter_orders() {
+        let mut queued_orders = WitchesBrewGame::get_all_orders();
+
+        let mut counter_orders: StackVector<Order, 5> = StackVector::new();
+        let mut counter_orders_ids: [u32; 5] = [0; 5];
+
+        for i in 0..5 {
+            let order = queued_orders.pop().unwrap();
+            counter_orders_ids[i] = order.id;
+            counter_orders.add(order);
+        }
+
+        counter_orders.get_mut(0).bonus = 3;
+        counter_orders.get_mut(1).bonus = 1;
+
+        let mut plus_3_bonus_remaining: u8 = 4;
+        let mut plus_1_bonus_remaining: u8 = 4;
+
+        let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
+
+        WitchesBrewGame::update_counter_orders(
+            &mut counter_orders,
+            &orders_to_remove_pos,
+            &mut queued_orders,
+            &mut plus_3_bonus_remaining,
+            &mut plus_1_bonus_remaining,
+        );
+
+        /* */
+        assert_eq!(plus_3_bonus_remaining, 3);
+        assert_eq!(plus_1_bonus_remaining, 3);
+        assert_ne!(counter_orders.get(0).id, counter_orders_ids[0]);
+        assert_ne!(counter_orders.get(1).id, counter_orders_ids[1]);
+        assert_eq!(counter_orders.get(0).id, counter_orders_ids[2]);
+        assert_eq!(counter_orders.get(0).bonus, 3);
+        assert_eq!(counter_orders.get(1).bonus, 1);
+        assert_eq!(counter_orders.get(2).bonus, 0);
+    }
+
+    #[test]
+    fn test_update_counter_orders_same_order() {
+        let mut queued_orders = WitchesBrewGame::get_all_orders();
+
+        let mut counter_orders: StackVector<Order, 5> = StackVector::new();
+        let mut counter_orders_ids: [u32; 5] = [0; 5];
+
+        for i in 0..5 {
+            let order = queued_orders.pop().unwrap();
+            counter_orders_ids[i] = order.id;
+            counter_orders.add(order);
+        }
+
+        counter_orders.get_mut(0).bonus = 3;
+        counter_orders.get_mut(1).bonus = 1;
+
+        let mut plus_3_bonus_remaining: u8 = 4;
+        let mut plus_1_bonus_remaining: u8 = 4;
+
+        let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(0)];
+
+        WitchesBrewGame::update_counter_orders(
+            &mut counter_orders,
+            &orders_to_remove_pos,
+            &mut queued_orders,
+            &mut plus_3_bonus_remaining,
+            &mut plus_1_bonus_remaining,
+        );
+
+        /* */
+        assert_eq!(plus_3_bonus_remaining, 2);
+        assert_eq!(plus_1_bonus_remaining, 4);
+        assert_ne!(counter_orders.get(0).id, counter_orders_ids[0]);
+        assert_eq!(counter_orders.get(0).id, counter_orders_ids[1]);
+        assert_eq!(counter_orders.get(0).bonus, 3);
+        assert_eq!(counter_orders.get(1).bonus, 1);
+        assert_eq!(counter_orders.get(2).bonus, 0);
+    }
+
+    #[test]
+    fn test_update_counter_orders_1_order() {
+        let mut queued_orders = WitchesBrewGame::get_all_orders();
+
+        let mut counter_orders: StackVector<Order, 5> = StackVector::new();
+        let mut counter_orders_ids: [u32; 5] = [0; 5];
+
+        for i in 0..5 {
+            let order = queued_orders.pop().unwrap();
+            counter_orders_ids[i] = order.id;
+            counter_orders.add(order);
+        }
+
+        counter_orders.get_mut(0).bonus = 3;
+        counter_orders.get_mut(1).bonus = 1;
+
+        let mut plus_3_bonus_remaining: u8 = 4;
+        let mut plus_1_bonus_remaining: u8 = 4;
+
+        let orders_to_remove_pos: [Option<usize>; 2] = [None, Some(2)];
+
+        WitchesBrewGame::update_counter_orders(
+            &mut counter_orders,
+            &orders_to_remove_pos,
+            &mut queued_orders,
+            &mut plus_3_bonus_remaining,
+            &mut plus_1_bonus_remaining,
+        );
+
+        /* */
+        assert_eq!(plus_3_bonus_remaining, 4);
+        assert_eq!(plus_1_bonus_remaining, 4);
+        assert_eq!(counter_orders.get(0).id, counter_orders_ids[0]);
+        assert_eq!(counter_orders.get(1).id, counter_orders_ids[1]);
+        assert_ne!(counter_orders.get(2).id, counter_orders_ids[2]);
+        assert_eq!(counter_orders.get(2).id, counter_orders_ids[3]);
+        assert_eq!(counter_orders.get(0).bonus, 3);
+        assert_eq!(counter_orders.get(1).bonus, 1);
+        assert_eq!(counter_orders.get(2).bonus, 0);
+    }
+
+    #[test]
+    fn test_update_counter_orders_no_plus_3_remaining_same_order() {
+        let mut queued_orders = WitchesBrewGame::get_all_orders();
+
+        let mut counter_orders: StackVector<Order, 5> = StackVector::new();
+        let mut counter_orders_ids: [u32; 5] = [0; 5];
+
+        for i in 0..5 {
+            let order = queued_orders.pop().unwrap();
+            counter_orders_ids[i] = order.id;
+            counter_orders.add(order);
+        }
+
+        counter_orders.get_mut(0).bonus = 3;
+        counter_orders.get_mut(1).bonus = 1;
+
+        let mut plus_3_bonus_remaining: u8 = 1;
+        let mut plus_1_bonus_remaining: u8 = 4;
+
+        let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(0)];
+
+        WitchesBrewGame::update_counter_orders(
+            &mut counter_orders,
+            &orders_to_remove_pos,
+            &mut queued_orders,
+            &mut plus_3_bonus_remaining,
+            &mut plus_1_bonus_remaining,
+        );
+
+        /* */
+        assert_eq!(plus_3_bonus_remaining, 0);
+        assert_eq!(plus_1_bonus_remaining, 4);
+        assert_ne!(counter_orders.get(0).id, counter_orders_ids[0]);
+        assert_eq!(counter_orders.get(0).id, counter_orders_ids[1]);
+        assert_eq!(counter_orders.get(0).bonus, 1);
+        assert_eq!(counter_orders.get(1).bonus, 0);
+        assert_eq!(counter_orders.get(2).bonus, 0);
+    }
+
+    #[test]
+    fn test_update_counter_orders_no_plus_3_plus_1_remaining() {
+        let mut queued_orders = WitchesBrewGame::get_all_orders();
+
+        let mut counter_orders: StackVector<Order, 5> = StackVector::new();
+        let mut counter_orders_ids: [u32; 5] = [0; 5];
+
+        for i in 0..5 {
+            let order = queued_orders.pop().unwrap();
+            counter_orders_ids[i] = order.id;
+            counter_orders.add(order);
+        }
+
+        counter_orders.get_mut(0).bonus = 3;
+        counter_orders.get_mut(1).bonus = 1;
+
+        let mut plus_3_bonus_remaining: u8 = 1;
+        let mut plus_1_bonus_remaining: u8 = 1;
+
+        let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
+
+        WitchesBrewGame::update_counter_orders(
+            &mut counter_orders,
+            &orders_to_remove_pos,
+            &mut queued_orders,
+            &mut plus_3_bonus_remaining,
+            &mut plus_1_bonus_remaining,
+        );
+
+        /* */
+        assert_eq!(plus_3_bonus_remaining, 0);
+        assert_eq!(plus_1_bonus_remaining, 0);
+        assert_ne!(counter_orders.get(0).id, counter_orders_ids[0]);
+        assert_ne!(counter_orders.get(1).id, counter_orders_ids[1]);
+        assert_eq!(counter_orders.get(0).id, counter_orders_ids[2]);
+        assert_eq!(counter_orders.get(0).bonus, 0);
+        assert_eq!(counter_orders.get(1).bonus, 0);
+        assert_eq!(counter_orders.get(2).bonus, 0);
+    }
+
+    #[test]
+    fn test_update_counter_orders_1_order_left() {
+        let mut queued_orders = WitchesBrewGame::get_all_orders();
+
+        let mut counter_orders: StackVector<Order, 5> = StackVector::new();
+        let mut counter_orders_ids: [u32; 5] = [0; 5];
+
+        for i in 0..3 {
+            let order = queued_orders.pop().unwrap();
+            counter_orders_ids[i] = order.id;
+            counter_orders.add(order);
+        }
+
+        queued_orders.clear();
+
+        counter_orders.get_mut(0).bonus = 3;
+        counter_orders.get_mut(1).bonus = 1;
+
+        let mut plus_3_bonus_remaining: u8 = 2;
+        let mut plus_1_bonus_remaining: u8 = 2;
+
+        let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
+
+        WitchesBrewGame::update_counter_orders(
+            &mut counter_orders,
+            &orders_to_remove_pos,
+            &mut queued_orders,
+            &mut plus_3_bonus_remaining,
+            &mut plus_1_bonus_remaining,
+        );
+
+        /* */
+        assert_eq!(plus_3_bonus_remaining, 1);
+        assert_eq!(plus_1_bonus_remaining, 1);
+        assert_eq!(counter_orders.len(), 1);
+        assert_ne!(counter_orders.get(0).id, counter_orders_ids[0]);
+        assert_eq!(counter_orders.get(0).id, counter_orders_ids[2]);
+        assert_eq!(counter_orders.get(0).bonus, 3);
+    }
+
+    #[test]
+    fn test_update_counter_orders_no_order_left() {
+        let mut queued_orders = WitchesBrewGame::get_all_orders();
+
+        let mut counter_orders: StackVector<Order, 5> = StackVector::new();
+        let mut counter_orders_ids: [u32; 5] = [0; 5];
+
+        for i in 0..2 {
+            let order = queued_orders.pop().unwrap();
+            counter_orders_ids[i] = order.id;
+            counter_orders.add(order);
+        }
+
+        queued_orders.clear();
+
+        counter_orders.get_mut(0).bonus = 3;
+        counter_orders.get_mut(1).bonus = 1;
+
+        let mut plus_3_bonus_remaining: u8 = 2;
+        let mut plus_1_bonus_remaining: u8 = 2;
+
+        let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
+
+        WitchesBrewGame::update_counter_orders(
+            &mut counter_orders,
+            &orders_to_remove_pos,
+            &mut queued_orders,
+            &mut plus_3_bonus_remaining,
+            &mut plus_1_bonus_remaining,
+        );
+
+        /* */
+        assert_eq!(plus_3_bonus_remaining, 1);
+        assert_eq!(plus_1_bonus_remaining, 1);
+        assert_eq!(counter_orders.len(), 0);
     }
 }
