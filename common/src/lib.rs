@@ -80,6 +80,15 @@ impl<T: Copy + Clone + Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> 
     pub fn len(&self) -> usize {
         self.len
     }
+
+    pub fn from(v: &[T]) -> StackVector<T, MAX_SIZE> {
+        let mut sv: StackVector<T, MAX_SIZE> = StackVector::new();
+
+        for e in v.iter() {
+            sv.add(e.clone());
+        }
+        sv
+    }
 }
 
 pub trait Game {
@@ -251,5 +260,14 @@ mod tests {
         list.remove_multi([5]);
         let v: Vec<u8> = list.slice().to_vec();
         assert_vec_eq!(v, vec![0, 1, 2, 3, 4, 6, 7, 8, 9]);
+    }
+
+    #[test]
+    fn test_stackvector_from() {
+        let v = vec![3, 4, 5, 6];
+        let sv: StackVector<i32, 10> = StackVector::from(&v);
+
+        assert_vec_eq!(v, sv.slice());
+        assert_eq!(sv.len(), 4)
     }
 }
