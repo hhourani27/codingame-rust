@@ -114,279 +114,305 @@ pub struct WitchesBrewGame {
     winners: Option<(WinLossTie, WinLossTie)>,
 }
 
-impl WitchesBrewGame {
-    fn get_tome_spells() -> Vec<Spell> {
-        let spells: Vec<Ingredients> = vec![
-            [-3, 0, 0, 1],
-            [3, -1, 0, 0],
-            [1, 1, 0, 0],
-            [0, 0, 1, 0],
-            [3, 0, 0, 0],
-            [2, 3, -2, 0],
-            [2, 1, -2, 1],
-            [3, 0, 1, -1],
-            [3, -2, 1, 0],
-            [2, -3, 2, 0],
-            [2, 2, 0, -1],
-            [-4, 0, 2, 0],
-            [2, 1, 0, 0],
-            [4, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 2, 0, 0],
-            [1, 0, 1, 0],
-            [-2, 0, 1, 0],
-            [-1, -1, 0, 1],
-            [0, 2, -1, 0],
-            [2, -2, 0, 1],
-            [-3, 1, 1, 0],
-            [0, 2, -2, 1],
-            [1, -3, 1, 1],
-            [0, 3, 0, -1],
-            [0, -3, 0, 2],
-            [1, 1, 1, -1],
-            [1, 2, -1, 0],
-            [4, 1, -1, 0],
-            [-5, 0, 0, 2],
-            [-4, 0, 1, 1],
-            [0, 3, 2, -2],
-            [1, 1, 3, -2],
-            [-5, 0, 3, 0],
-            [-2, 0, -1, 2],
-            [0, 0, -3, 3],
-            [0, -3, 3, 0],
-            [-3, 3, 0, 0],
-            [-2, 2, 0, 0],
-            [0, 0, -2, 2],
-            [0, -2, 2, 0],
-            [0, 0, 2, -1],
-        ];
+fn get_tome_spells() -> Vec<Spell> {
+    let spells: Vec<Ingredients> = vec![
+        [-3, 0, 0, 1],
+        [3, -1, 0, 0],
+        [1, 1, 0, 0],
+        [0, 0, 1, 0],
+        [3, 0, 0, 0],
+        [2, 3, -2, 0],
+        [2, 1, -2, 1],
+        [3, 0, 1, -1],
+        [3, -2, 1, 0],
+        [2, -3, 2, 0],
+        [2, 2, 0, -1],
+        [-4, 0, 2, 0],
+        [2, 1, 0, 0],
+        [4, 0, 0, 0],
+        [0, 0, 0, 1],
+        [0, 2, 0, 0],
+        [1, 0, 1, 0],
+        [-2, 0, 1, 0],
+        [-1, -1, 0, 1],
+        [0, 2, -1, 0],
+        [2, -2, 0, 1],
+        [-3, 1, 1, 0],
+        [0, 2, -2, 1],
+        [1, -3, 1, 1],
+        [0, 3, 0, -1],
+        [0, -3, 0, 2],
+        [1, 1, 1, -1],
+        [1, 2, -1, 0],
+        [4, 1, -1, 0],
+        [-5, 0, 0, 2],
+        [-4, 0, 1, 1],
+        [0, 3, 2, -2],
+        [1, 1, 3, -2],
+        [-5, 0, 3, 0],
+        [-2, 0, -1, 2],
+        [0, 0, -3, 3],
+        [0, -3, 3, 0],
+        [-3, 3, 0, 0],
+        [-2, 2, 0, 0],
+        [0, 0, -2, 2],
+        [0, -2, 2, 0],
+        [0, 0, 2, -1],
+    ];
 
-        spells
-            .iter()
-            .enumerate()
-            .map(|(i, s)| Spell {
-                id: i as u32,
-                recipe: s.clone(),
-                delta_stock: s[0] + s[1] + s[2] + s[3],
-                tax: 0,
-                repeatable: s[0] < 0 || s[1] < 0 || s[2] < 0 || s[3] < 0,
-                active: true,
-            })
-            .collect::<Vec<Spell>>()
-    }
+    spells
+        .iter()
+        .enumerate()
+        .map(|(i, s)| Spell {
+            id: i as u32,
+            recipe: s.clone(),
+            delta_stock: s[0] + s[1] + s[2] + s[3],
+            tax: 0,
+            repeatable: s[0] < 0 || s[1] < 0 || s[2] < 0 || s[3] < 0,
+            active: true,
+        })
+        .collect::<Vec<Spell>>()
+}
 
-    fn get_basic_spells() -> [Spell; 4] {
-        [
-            Spell {
-                id: 42,
-                recipe: [2, 0, 0, 0],
-                delta_stock: 2,
-                tax: 0,
-                repeatable: false,
-                active: true,
-            },
-            Spell {
-                id: 43,
-                recipe: [-1, 1, 0, 0],
-                delta_stock: 0,
-                tax: 0,
-                repeatable: false,
-                active: true,
-            },
-            Spell {
-                id: 44,
-                recipe: [0, -1, 1, 0],
-                delta_stock: 0,
-                tax: 0,
-                repeatable: false,
-                active: true,
-            },
-            Spell {
-                id: 45,
-                recipe: [0, 0, -1, 1],
-                delta_stock: 0,
-                tax: 0,
-                repeatable: false,
-                active: true,
-            },
-        ]
-    }
+fn get_basic_spells() -> [Spell; 4] {
+    [
+        Spell {
+            id: 42,
+            recipe: [2, 0, 0, 0],
+            delta_stock: 2,
+            tax: 0,
+            repeatable: false,
+            active: true,
+        },
+        Spell {
+            id: 43,
+            recipe: [-1, 1, 0, 0],
+            delta_stock: 0,
+            tax: 0,
+            repeatable: false,
+            active: true,
+        },
+        Spell {
+            id: 44,
+            recipe: [0, -1, 1, 0],
+            delta_stock: 0,
+            tax: 0,
+            repeatable: false,
+            active: true,
+        },
+        Spell {
+            id: 45,
+            recipe: [0, 0, -1, 1],
+            delta_stock: 0,
+            tax: 0,
+            repeatable: false,
+            active: true,
+        },
+    ]
+}
 
-    #[allow(dead_code)]
-    fn find_spell(recipe: &Ingredients) -> Option<Spell> {
-        for spell in WitchesBrewGame::get_tome_spells().iter() {
-            if spell.recipe == *recipe {
-                return Some(spell.clone());
-            }
+#[allow(dead_code)]
+fn find_spell(recipe: &Ingredients) -> Option<Spell> {
+    for spell in get_tome_spells().iter() {
+        if spell.recipe == *recipe {
+            return Some(spell.clone());
         }
-        for spell in WitchesBrewGame::get_basic_spells().iter() {
-            if spell.recipe == *recipe {
-                return Some(spell.clone());
-            }
+    }
+    for spell in get_basic_spells().iter() {
+        if spell.recipe == *recipe {
+            return Some(spell.clone());
         }
-
-        None
     }
 
-    fn get_all_orders() -> Vec<Order> {
-        let orders: Vec<(Ingredients, u8)> = vec![
-            ([2, 2, 0, 0], 6),
-            ([3, 2, 0, 0], 7),
-            ([0, 4, 0, 0], 8),
-            ([2, 0, 2, 0], 8),
-            ([2, 3, 0, 0], 8),
-            ([3, 0, 2, 0], 9),
-            ([0, 2, 2, 0], 10),
-            ([0, 5, 0, 0], 10),
-            ([2, 0, 0, 2], 10),
-            ([2, 0, 3, 0], 11),
-            ([3, 0, 0, 2], 11),
-            ([0, 0, 4, 0], 12),
-            ([0, 2, 0, 2], 12),
-            ([0, 3, 2, 0], 12),
-            ([0, 2, 3, 0], 13),
-            ([0, 0, 2, 2], 14),
-            ([0, 3, 0, 2], 14),
-            ([2, 0, 0, 3], 14),
-            ([0, 0, 5, 0], 15),
-            ([0, 0, 0, 4], 16),
-            ([0, 2, 0, 3], 16),
-            ([0, 0, 3, 2], 17),
-            ([0, 0, 2, 3], 18),
-            ([0, 0, 0, 5], 20),
-            ([2, 1, 0, 1], 9),
-            ([0, 2, 1, 1], 12),
-            ([1, 0, 2, 1], 12),
-            ([2, 2, 2, 0], 13),
-            ([2, 2, 0, 2], 15),
-            ([2, 0, 2, 2], 17),
-            ([0, 2, 2, 2], 19),
-            ([1, 1, 1, 1], 12),
-            ([3, 1, 1, 1], 14),
-            ([1, 3, 1, 1], 16),
-            ([1, 1, 3, 1], 18),
-            ([1, 1, 1, 3], 20),
-        ];
+    None
+}
 
-        orders
-            .iter()
-            .enumerate()
-            .map(|(i, o)| Order {
-                id: i as u32,
-                recipe: [-o.0[0], -o.0[1], -o.0[2], -o.0[3]],
-                price: o.1,
-                bonus: 0,
-            })
-            .collect::<Vec<Order>>()
-    }
+fn get_all_orders() -> Vec<Order> {
+    let orders: Vec<(Ingredients, u8)> = vec![
+        ([2, 2, 0, 0], 6),
+        ([3, 2, 0, 0], 7),
+        ([0, 4, 0, 0], 8),
+        ([2, 0, 2, 0], 8),
+        ([2, 3, 0, 0], 8),
+        ([3, 0, 2, 0], 9),
+        ([0, 2, 2, 0], 10),
+        ([0, 5, 0, 0], 10),
+        ([2, 0, 0, 2], 10),
+        ([2, 0, 3, 0], 11),
+        ([3, 0, 0, 2], 11),
+        ([0, 0, 4, 0], 12),
+        ([0, 2, 0, 2], 12),
+        ([0, 3, 2, 0], 12),
+        ([0, 2, 3, 0], 13),
+        ([0, 0, 2, 2], 14),
+        ([0, 3, 0, 2], 14),
+        ([2, 0, 0, 3], 14),
+        ([0, 0, 5, 0], 15),
+        ([0, 0, 0, 4], 16),
+        ([0, 2, 0, 3], 16),
+        ([0, 0, 3, 2], 17),
+        ([0, 0, 2, 3], 18),
+        ([0, 0, 0, 5], 20),
+        ([2, 1, 0, 1], 9),
+        ([0, 2, 1, 1], 12),
+        ([1, 0, 2, 1], 12),
+        ([2, 2, 2, 0], 13),
+        ([2, 2, 0, 2], 15),
+        ([2, 0, 2, 2], 17),
+        ([0, 2, 2, 2], 19),
+        ([1, 1, 1, 1], 12),
+        ([3, 1, 1, 1], 14),
+        ([1, 3, 1, 1], 16),
+        ([1, 1, 3, 1], 18),
+        ([1, 1, 1, 3], 20),
+    ];
 
-    #[allow(dead_code)]
-    fn find_order(recipe: &Ingredients) -> Option<Order> {
-        for order in WitchesBrewGame::get_all_orders().iter() {
-            if order.recipe == *recipe {
-                return Some(order.clone());
-            }
+    orders
+        .iter()
+        .enumerate()
+        .map(|(i, o)| Order {
+            id: i as u32,
+            recipe: [-o.0[0], -o.0[1], -o.0[2], -o.0[3]],
+            price: o.1,
+            bonus: 0,
+        })
+        .collect::<Vec<Order>>()
+}
+
+#[allow(dead_code)]
+fn find_order(recipe: &Ingredients) -> Option<Order> {
+    for order in get_all_orders().iter() {
+        if order.recipe == *recipe {
+            return Some(order.clone());
         }
-
-        None
     }
 
-    fn can_fulfill_order(order: &Order, stock: &Ingredients) -> bool {
-        stock[0] >= -order.recipe[0]
-            && stock[1] >= -order.recipe[1]
-            && stock[2] >= -order.recipe[2]
-            && stock[3] >= -order.recipe[3]
+    None
+}
+
+fn can_fulfill_order(order: &Order, stock: &Ingredients) -> bool {
+    stock[0] >= -order.recipe[0]
+        && stock[1] >= -order.recipe[1]
+        && stock[2] >= -order.recipe[2]
+        && stock[3] >= -order.recipe[3]
+}
+
+fn can_cast_spell(spell: &Spell, stock: &Ingredients) -> bool {
+    if spell.active == false {
+        return false;
     }
 
-    fn can_cast_spell(spell: &Spell, stock: &Ingredients) -> bool {
-        if spell.active == false {
+    let empty_slots = 10 - stock[0] - stock[1] - stock[2] - stock[3];
+
+    if spell.delta_stock > empty_slots {
+        return false;
+    }
+    for i in 0..4 {
+        if spell.recipe[i] < 0 && stock[i] < -spell.recipe[i] {
             return false;
         }
+    }
+    true
+}
 
-        let empty_slots = 10 - stock[0] - stock[1] - stock[2] - stock[3];
+/* Return how many times the spell can be cast */
+fn how_many_times_can_cast_spell(spell: &Spell, stock: &Ingredients) -> u8 {
+    if spell.active == false {
+        return 0;
+    }
 
-        if spell.delta_stock > empty_slots {
-            return false;
+    if spell.repeatable == false {
+        match can_cast_spell(spell, stock) {
+            true => 1,
+            false => 0,
         }
+    } else {
+        let mut times = 0;
+        let mut stock = stock.clone();
+
+        while can_cast_spell(spell, &stock) {
+            times += 1;
+            cast_and_update_stock(&mut stock, &spell.recipe, 1);
+        }
+
+        times
+    }
+}
+
+fn get_order_position(orders: &[Order], order_id: u32) -> Option<usize> {
+    for i in 0..orders.len() {
+        if orders[i].id == order_id {
+            return Some(i);
+        }
+    }
+    None
+}
+
+fn get_spell_position(spells: &[Spell], spell_id: u32) -> Option<usize> {
+    for i in 0..spells.len() {
+        if spells[i].id == spell_id {
+            return Some(i);
+        }
+    }
+    None
+}
+
+fn cast_and_update_stock(stock: &mut Ingredients, recipe: &Ingredients, times: u8) {
+    for _ in 0..times {
         for i in 0..4 {
-            if spell.recipe[i] < 0 && stock[i] < -spell.recipe[i] {
-                return false;
-            }
-        }
-        true
-    }
-
-    /* Return how many times the spell can be cast */
-    fn how_many_times_can_cast_spell(spell: &Spell, stock: &Ingredients) -> u8 {
-        if spell.active == false {
-            return 0;
-        }
-
-        if spell.repeatable == false {
-            match WitchesBrewGame::can_cast_spell(spell, stock) {
-                true => 1,
-                false => 0,
-            }
-        } else {
-            let mut times = 0;
-            let mut stock = stock.clone();
-
-            while WitchesBrewGame::can_cast_spell(spell, &stock) {
-                times += 1;
-                WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 1);
-            }
-
-            times
+            stock[i] += recipe[i];
         }
     }
+}
 
-    fn get_order_position(orders: &[Order], order_id: u32) -> Option<usize> {
-        for i in 0..orders.len() {
-            if orders[i].id == order_id {
-                return Some(i);
+fn brew_and_update_stock(stock: &mut Ingredients, order: &Order) {
+    for i in 0..4 {
+        stock[i] += order.recipe[i];
+    }
+}
+
+fn update_counter_orders(
+    counter_orders: &mut StackVector<Order, 5>,
+    queued_orders: &mut Vec<Order>,
+    plus_3_bonus_remaining: &mut u8,
+    plus_1_bonus_remaining: &mut u8,
+    orders_to_remove_pos: &[Option<usize>; 2],
+) {
+    /* First remove and determine how many orders & bonuses were used */
+    let removed_orders_count;
+
+    match orders_to_remove_pos {
+        [None, None] => return,
+        [Some(o), None] | [None, Some(o)] => {
+            removed_orders_count = 1;
+            match counter_orders.get(*o).bonus {
+                3 => {
+                    *plus_3_bonus_remaining -= 1;
+                }
+                1 => {
+                    *plus_1_bonus_remaining -= 1;
+                }
+                _ => {}
             }
+            counter_orders.remove(*o);
         }
-        None
-    }
-
-    fn get_spell_position(spells: &[Spell], spell_id: u32) -> Option<usize> {
-        for i in 0..spells.len() {
-            if spells[i].id == spell_id {
-                return Some(i);
+        [Some(o1), Some(o2)] if *o1 == *o2 => {
+            removed_orders_count = 1;
+            match counter_orders.get(*o1).bonus {
+                3 => {
+                    *plus_3_bonus_remaining = plus_3_bonus_remaining.saturating_sub(2);
+                }
+                1 => {
+                    *plus_1_bonus_remaining = plus_1_bonus_remaining.saturating_sub(2);
+                }
+                _ => {}
             }
+            counter_orders.remove(*o1);
         }
-        None
-    }
-
-    fn cast_and_update_stock(stock: &mut Ingredients, recipe: &Ingredients, times: u8) {
-        for _ in 0..times {
-            for i in 0..4 {
-                stock[i] += recipe[i];
-            }
-        }
-    }
-
-    fn brew_and_update_stock(stock: &mut Ingredients, order: &Order) {
-        for i in 0..4 {
-            stock[i] += order.recipe[i];
-        }
-    }
-
-    fn update_counter_orders(
-        counter_orders: &mut StackVector<Order, 5>,
-        queued_orders: &mut Vec<Order>,
-        plus_3_bonus_remaining: &mut u8,
-        plus_1_bonus_remaining: &mut u8,
-        orders_to_remove_pos: &[Option<usize>; 2],
-    ) {
-        /* First remove and determine how many orders & bonuses were used */
-        let removed_orders_count;
-
-        match orders_to_remove_pos {
-            [None, None] => return,
-            [Some(o), None] | [None, Some(o)] => {
-                removed_orders_count = 1;
-                match counter_orders.get(*o).bonus {
+        [Some(o1), Some(o2)] => {
+            removed_orders_count = 2;
+            for o in [o1, o2].iter() {
+                match counter_orders.get(**o).bonus {
                     3 => {
                         *plus_3_bonus_remaining -= 1;
                     }
@@ -395,197 +421,168 @@ impl WitchesBrewGame {
                     }
                     _ => {}
                 }
-                counter_orders.remove(*o);
             }
-            [Some(o1), Some(o2)] if *o1 == *o2 => {
-                removed_orders_count = 1;
-                match counter_orders.get(*o1).bonus {
-                    3 => {
-                        *plus_3_bonus_remaining = plus_3_bonus_remaining.saturating_sub(2);
-                    }
-                    1 => {
-                        *plus_1_bonus_remaining = plus_1_bonus_remaining.saturating_sub(2);
-                    }
-                    _ => {}
-                }
-                counter_orders.remove(*o1);
-            }
-            [Some(o1), Some(o2)] => {
-                removed_orders_count = 2;
-                for o in [o1, o2].iter() {
-                    match counter_orders.get(**o).bonus {
-                        3 => {
-                            *plus_3_bonus_remaining -= 1;
-                        }
-                        1 => {
-                            *plus_1_bonus_remaining -= 1;
-                        }
-                        _ => {}
-                    }
-                }
-                counter_orders.remove_multi([*o1, *o2]);
-            }
+            counter_orders.remove_multi([*o1, *o2]);
+        }
+    }
+
+    /* Replace removed orders if possible */
+    for _ in 0..removed_orders_count {
+        if queued_orders.len() > 0 {
+            counter_orders.add(queued_orders.pop().unwrap());
+        }
+    }
+
+    /* Update bonuses if possible */
+    if *plus_3_bonus_remaining > 0 {
+        if counter_orders.len() >= 1 {
+            counter_orders.get_mut(0).bonus = 3;
         }
 
-        /* Replace removed orders if possible */
-        for _ in 0..removed_orders_count {
-            if queued_orders.len() > 0 {
-                counter_orders.add(queued_orders.pop().unwrap());
-            }
-        }
-
-        /* Update bonuses if possible */
-        if *plus_3_bonus_remaining > 0 {
-            if counter_orders.len() >= 1 {
-                counter_orders.get_mut(0).bonus = 3;
-            }
-
-            if *plus_1_bonus_remaining > 0 {
-                if counter_orders.len() >= 2 {
-                    counter_orders.get_mut(1).bonus = 1;
-                }
-            }
-        } else if plus_1_bonus_remaining > &mut 0 {
-            if counter_orders.len() >= 1 {
-                counter_orders.get_mut(0).bonus = 1;
-            }
-
+        if *plus_1_bonus_remaining > 0 {
             if counter_orders.len() >= 2 {
-                counter_orders.get_mut(1).bonus = 0;
+                counter_orders.get_mut(1).bonus = 1;
             }
+        }
+    } else if plus_1_bonus_remaining > &mut 0 {
+        if counter_orders.len() >= 1 {
+            counter_orders.get_mut(0).bonus = 1;
+        }
+
+        if counter_orders.len() >= 2 {
+            counter_orders.get_mut(1).bonus = 0;
+        }
+    } else {
+        if counter_orders.len() >= 1 {
+            counter_orders.get_mut(0).bonus = 0;
+        }
+
+        if counter_orders.len() >= 2 {
+            counter_orders.get_mut(1).bonus = 0;
+        }
+    }
+}
+
+fn update_tome_spells(
+    tome_spells: &mut StackVector<Spell, 6>,
+    queued_spells: &mut Vec<Spell>,
+    spells_to_remove_pos: &[Option<usize>; 2],
+    spell_tax_payed: &[Option<usize>; 2],
+) {
+    /* First remove and determine how many spells were learnt */
+    let learnt_spells_count;
+
+    match spells_to_remove_pos {
+        [None, None] => return,
+        [Some(s), None] | [None, Some(s)] => {
+            tome_spells.remove(*s);
+            learnt_spells_count = 1;
+        }
+        [Some(s1), Some(s2)] if *s1 == *s2 => {
+            tome_spells.remove(*s1);
+            learnt_spells_count = 1;
+        }
+        [Some(s1), Some(s2)] => {
+            tome_spells.remove_multi([*s1, *s2]);
+            learnt_spells_count = 2;
+        }
+    }
+
+    /* Replace removed spells if possible */
+    for _ in 0..learnt_spells_count {
+        if queued_spells.len() > 0 {
+            tome_spells.add(queued_spells.pop().unwrap());
+        }
+    }
+
+    /* Pay taxes */
+    for p in 0..2 {
+        if let Some(t) = spell_tax_payed[p] {
+            for s in 0..cmp::min(t, tome_spells.len()) {
+                tome_spells.get_mut(s).tax += 1;
+            }
+        }
+    }
+}
+
+fn valid_moves(
+    orders: &[Order],
+    tome_spells: &[Spell],
+    player_spells: &[Spell],
+    stock: &Ingredients,
+) -> StackVector<Move, MAX_VALID_MOVES> {
+    // There's at max 10 possible moves : 5 orders, 4 spells + REST
+    let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector {
+        arr: [Move::NONE; MAX_VALID_MOVES],
+        len: 0,
+    };
+
+    /* BREW moves */
+    // Check which order the player can fulfill and add them as a valid move
+    for order in orders.iter() {
+        if can_fulfill_order(order, stock) {
+            valid_moves.add(Move::BREW(order.id));
+        }
+    }
+
+    /* CAST moves */
+    // Check which spell the player can cast and add them as a valid move
+    // in the meantime check if there are inactive spells
+    let mut all_spells_are_active = true;
+    for sp in player_spells.iter() {
+        if sp.active == false {
+            all_spells_are_active = false;
         } else {
-            if counter_orders.len() >= 1 {
-                counter_orders.get_mut(0).bonus = 0;
-            }
-
-            if counter_orders.len() >= 2 {
-                counter_orders.get_mut(1).bonus = 0;
-            }
-        }
-    }
-
-    fn update_tome_spells(
-        tome_spells: &mut StackVector<Spell, 6>,
-        queued_spells: &mut Vec<Spell>,
-        spells_to_remove_pos: &[Option<usize>; 2],
-        spell_tax_payed: &[Option<usize>; 2],
-    ) {
-        /* First remove and determine how many spells were learnt */
-        let learnt_spells_count;
-
-        match spells_to_remove_pos {
-            [None, None] => return,
-            [Some(s), None] | [None, Some(s)] => {
-                tome_spells.remove(*s);
-                learnt_spells_count = 1;
-            }
-            [Some(s1), Some(s2)] if *s1 == *s2 => {
-                tome_spells.remove(*s1);
-                learnt_spells_count = 1;
-            }
-            [Some(s1), Some(s2)] => {
-                tome_spells.remove_multi([*s1, *s2]);
-                learnt_spells_count = 2;
-            }
-        }
-
-        /* Replace removed spells if possible */
-        for _ in 0..learnt_spells_count {
-            if queued_spells.len() > 0 {
-                tome_spells.add(queued_spells.pop().unwrap());
-            }
-        }
-
-        /* Pay taxes */
-        for p in 0..2 {
-            if let Some(t) = spell_tax_payed[p] {
-                for s in 0..cmp::min(t, tome_spells.len()) {
-                    tome_spells.get_mut(s).tax += 1;
+            let times_can_cast_spell = how_many_times_can_cast_spell(sp, stock);
+            if times_can_cast_spell > 0 {
+                for n in 1..=times_can_cast_spell {
+                    valid_moves.add(Move::CAST(sp.id, n));
                 }
             }
         }
     }
 
-    fn valid_moves(
-        orders: &[Order],
-        tome_spells: &[Spell],
-        player_spells: &[Spell],
-        stock: &Ingredients,
-    ) -> StackVector<Move, MAX_VALID_MOVES> {
-        // There's at max 10 possible moves : 5 orders, 4 spells + REST
-        let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector {
-            arr: [Move::NONE; MAX_VALID_MOVES],
-            len: 0,
-        };
-
-        /* BREW moves */
-        // Check which order the player can fulfill and add them as a valid move
-        for order in orders.iter() {
-            if WitchesBrewGame::can_fulfill_order(order, stock) {
-                valid_moves.add(Move::BREW(order.id));
-            }
-        }
-
-        /* CAST moves */
-        // Check which spell the player can cast and add them as a valid move
-        // in the meantime check if there are inactive spells
-        let mut all_spells_are_active = true;
-        for sp in player_spells.iter() {
-            if sp.active == false {
-                all_spells_are_active = false;
-            } else {
-                let times_can_cast_spell =
-                    WitchesBrewGame::how_many_times_can_cast_spell(sp, stock);
-                if times_can_cast_spell > 0 {
-                    for n in 1..=times_can_cast_spell {
-                        valid_moves.add(Move::CAST(sp.id, n));
-                    }
-                }
-            }
-        }
-
-        /* REST move */
-        if all_spells_are_active == false {
-            valid_moves.add(Move::REST);
-        }
-
-        /* LEARN moves */
-        for (t, spell) in tome_spells.iter().enumerate() {
-            if t as u8 <= stock[0] as u8 {
-                valid_moves.add(Move::LEARN(spell.id));
-            }
-        }
-
-        // At the end, if there's no valid moves, we just send a wait
-        if valid_moves.len == 0 {
-            valid_moves.add(Move::WAIT);
-        }
-
-        valid_moves
+    /* REST move */
+    if all_spells_are_active == false {
+        valid_moves.add(Move::REST);
     }
 
-    #[allow(dead_code)]
-    fn new_init(
-        players: [Player; 2],
-        tome_spells: StackVector<Spell, 6>,
-        counter_orders: StackVector<Order, 5>,
-        plus_3_bonus_remaining: u8,
-        plus_1_bonus_remaining: u8,
-        turn: u8,
-    ) -> Self {
-        Self {
-            players,
-            queued_orders: Vec::new(),
-            counter_orders,
-            plus_3_bonus_remaining,
-            plus_1_bonus_remaining,
-            queued_spells: Vec::new(),
-            tome_spells,
-            active: true,
-            active_player: 0,
-            turn,
-            winners: None,
+    /* LEARN moves */
+    for (t, spell) in tome_spells.iter().enumerate() {
+        if t as u8 <= stock[0] as u8 {
+            valid_moves.add(Move::LEARN(spell.id));
         }
+    }
+
+    // At the end, if there's no valid moves, we just send a wait
+    if valid_moves.len == 0 {
+        valid_moves.add(Move::WAIT);
+    }
+
+    valid_moves
+}
+
+#[allow(dead_code)]
+fn new_init(
+    players: [Player; 2],
+    tome_spells: StackVector<Spell, 6>,
+    counter_orders: StackVector<Order, 5>,
+    plus_3_bonus_remaining: u8,
+    plus_1_bonus_remaining: u8,
+    turn: u8,
+) -> WitchesBrewGame {
+    WitchesBrewGame {
+        players,
+        queued_orders: Vec::new(),
+        counter_orders,
+        plus_3_bonus_remaining,
+        plus_1_bonus_remaining,
+        queued_spells: Vec::new(),
+        tome_spells,
+        active: true,
+        active_player: 0,
+        turn,
+        winners: None,
     }
 }
 
@@ -593,7 +590,7 @@ impl Game for WitchesBrewGame {
     fn new() -> Self {
         /* Create Player's basic spells */
         let mut player_spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
-        let basic_spells = WitchesBrewGame::get_basic_spells();
+        let basic_spells = get_basic_spells();
         for i in 0..4 {
             player_spells.add(basic_spells[i]);
         }
@@ -608,7 +605,7 @@ impl Game for WitchesBrewGame {
         };
 
         /* Create orders */
-        let mut all_orders = WitchesBrewGame::get_all_orders();
+        let mut all_orders = get_all_orders();
         all_orders.shuffle(&mut thread_rng());
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
@@ -619,7 +616,7 @@ impl Game for WitchesBrewGame {
         counter_orders.get_mut(1).bonus = 1;
 
         /* Create tome spells */
-        let mut queued_spells = WitchesBrewGame::get_tome_spells();
+        let mut queued_spells = get_tome_spells();
         queued_spells.shuffle(&mut thread_rng());
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
@@ -784,13 +781,13 @@ impl Game for WitchesBrewGame {
             let player1: &Player = &self.players[1];
 
             /* 3.1 Check if moves were valid */
-            let player0_valid_moves = WitchesBrewGame::valid_moves(
+            let player0_valid_moves = valid_moves(
                 &self.counter_orders.slice(),
                 &self.tome_spells.slice(),
                 &player0.spells.slice(),
                 &player0.stock,
             );
-            let player1_valid_moves = WitchesBrewGame::valid_moves(
+            let player1_valid_moves = valid_moves(
                 &self.counter_orders.slice(),
                 &self.tome_spells.slice(),
                 &player1.spells.slice(),
@@ -838,11 +835,8 @@ impl Game for WitchesBrewGame {
             for (pid, player) in self.players.iter_mut().enumerate() {
                 match player.move_ {
                     Move::BREW(order_id) => {
-                        let fullfilled_order_pos = WitchesBrewGame::get_order_position(
-                            &self.counter_orders.slice(),
-                            order_id,
-                        )
-                        .unwrap();
+                        let fullfilled_order_pos =
+                            get_order_position(&self.counter_orders.slice(), order_id).unwrap();
 
                         let fullfilled_order = self.counter_orders.get(fullfilled_order_pos);
 
@@ -854,10 +848,7 @@ impl Game for WitchesBrewGame {
                             fullfilled_order.price as u32 + fullfilled_order.bonus as u32;
 
                         // Update the player's ingredient stock
-                        WitchesBrewGame::brew_and_update_stock(
-                            &mut player.stock,
-                            &fullfilled_order,
-                        );
+                        brew_and_update_stock(&mut player.stock, &fullfilled_order);
 
                         // Save fullfilled orders so that I remove them later
                         orders_were_fullfilled = true;
@@ -865,27 +856,19 @@ impl Game for WitchesBrewGame {
                     }
                     Move::CAST(spell_id, times) => {
                         let cast_spell_idx =
-                            WitchesBrewGame::get_spell_position(&player.spells.slice(), spell_id)
-                                .unwrap();
+                            get_spell_position(&player.spells.slice(), spell_id).unwrap();
 
                         let cast_spell = player.spells.get_mut(cast_spell_idx);
 
                         // Update the player's ingredient stock
-                        WitchesBrewGame::cast_and_update_stock(
-                            &mut player.stock,
-                            &cast_spell.recipe,
-                            times,
-                        );
+                        cast_and_update_stock(&mut player.stock, &cast_spell.recipe, times);
 
                         // Spell is now exhausted
                         cast_spell.active = false;
                     }
                     Move::LEARN(spell_id) => {
-                        let learnt_spell_pos = WitchesBrewGame::get_spell_position(
-                            &self.tome_spells.slice(),
-                            spell_id,
-                        )
-                        .unwrap();
+                        let learnt_spell_pos =
+                            get_spell_position(&self.tome_spells.slice(), spell_id).unwrap();
 
                         let learnt_spell = self.tome_spells.get(learnt_spell_pos);
 
@@ -921,7 +904,7 @@ impl Game for WitchesBrewGame {
 
             /* Remove fullfilled orders and create new one in their place, and update bonus */
             if orders_were_fullfilled == true {
-                WitchesBrewGame::update_counter_orders(
+                update_counter_orders(
                     &mut self.counter_orders,
                     &mut self.queued_orders,
                     &mut self.plus_3_bonus_remaining,
@@ -932,7 +915,7 @@ impl Game for WitchesBrewGame {
 
             /* Remove learnt spells and create new one in their place, and update tax */
             if spells_were_learnt == true {
-                WitchesBrewGame::update_tome_spells(
+                update_tome_spells(
                     &mut self.tome_spells,
                     &mut self.queued_spells,
                     &spells_to_remove_pos,
@@ -1116,7 +1099,7 @@ impl Game for WitchesBrewGame {
                     .join(","),
             );
 
-            let valid_moves = WitchesBrewGame::valid_moves(
+            let valid_moves = valid_moves(
                 &self.counter_orders.slice(),
                 &self.tome_spells.slice(),
                 &player.spells.slice(),
@@ -1165,7 +1148,7 @@ mod tests {
 
     #[test]
     fn test_get_tome_spell() {
-        let tome_spells = WitchesBrewGame::get_tome_spells();
+        let tome_spells = get_tome_spells();
         assert_eq!(tome_spells.len(), 42);
 
         assert_eq!(tome_spells[2].repeatable, false);
@@ -1182,397 +1165,247 @@ mod tests {
 
     #[test]
     fn test_get_spell() {
-        let spell = WitchesBrewGame::find_spell(&[-5, 0, 0, 2]).unwrap();
+        let spell = find_spell(&[-5, 0, 0, 2]).unwrap();
         assert_eq!(spell.id, 29);
 
-        let spell = WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap();
+        let spell = find_spell(&[2, 1, 0, 0]).unwrap();
         assert_eq!(spell.id, 12);
         assert_eq!(spell.repeatable, false);
 
-        let spell = WitchesBrewGame::find_spell(&[-1, 1, 0, 0]).unwrap();
+        let spell = find_spell(&[-1, 1, 0, 0]).unwrap();
         assert_eq!(spell.id, 43);
         assert_eq!(spell.repeatable, false);
 
-        let spell = WitchesBrewGame::find_spell(&[-5, 0, 0, 0]);
+        let spell = find_spell(&[-5, 0, 0, 0]);
         assert!(spell.is_none());
     }
 
     #[test]
     fn test_get_order() {
-        let order = WitchesBrewGame::find_order(&[-2, 0, 0, -2]).unwrap();
+        let order = find_order(&[-2, 0, 0, -2]).unwrap();
         assert_eq!(order.id, 8);
         assert_eq!(order.price, 10);
 
-        let order = WitchesBrewGame::find_order(&[-3, -2, -1, 0]);
+        let order = find_order(&[-3, -2, -1, 0]);
         assert!(order.is_none());
     }
 
     #[test]
     fn test_can_fulfill_order() {
-        let orders = WitchesBrewGame::get_all_orders();
+        let orders = get_all_orders();
 
         let stock = [3, 2, 1, 0];
 
         // order[0] = [2, 2, 0, 0]
-        assert_eq!(WitchesBrewGame::can_fulfill_order(&orders[0], &stock), true);
+        assert_eq!(can_fulfill_order(&orders[0], &stock), true);
         // order[2] = [0, 4, 0, 0]
-        assert_eq!(
-            WitchesBrewGame::can_fulfill_order(&orders[2], &stock),
-            false
-        );
+        assert_eq!(can_fulfill_order(&orders[2], &stock), false);
 
         let stock = [2, 2, 2, 0];
         //order[27] = [2, 2, 2, 0]
-        assert_eq!(
-            WitchesBrewGame::can_fulfill_order(&orders[27], &stock),
-            true
-        );
+        assert_eq!(can_fulfill_order(&orders[27], &stock), true);
         //order[26] = [1, 0, 2, 1]
-        assert_eq!(
-            WitchesBrewGame::can_fulfill_order(&orders[26], &stock),
-            false
-        );
+        assert_eq!(can_fulfill_order(&orders[26], &stock), false);
 
         let stock = [0, 10, 0, 0];
         //order[7] = [0, 5, 0, 0]
-        assert_eq!(WitchesBrewGame::can_fulfill_order(&orders[7], &stock), true);
+        assert_eq!(can_fulfill_order(&orders[7], &stock), true);
         //order[4] = [2, 3, 0, 0]
-        assert_eq!(
-            WitchesBrewGame::can_fulfill_order(&orders[4], &stock),
-            false
-        );
+        assert_eq!(can_fulfill_order(&orders[4], &stock), false);
     }
 
     #[test]
     fn test_can_cast_spell() {
-        let tome_spells = WitchesBrewGame::get_tome_spells();
+        let tome_spells = get_tome_spells();
 
         // Test remove one ingredient
         let spell = &tome_spells[7]; //[3, 0, 1, -1]
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[0, 0, 0, 1]), true);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[1, 1, 1, 1]), true);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[0, 0, 0, 3]), true);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[0, 0, 0, 0]), false);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[1, 1, 1, 0]), false);
+        assert_eq!(can_cast_spell(spell, &[0, 0, 0, 1]), true);
+        assert_eq!(can_cast_spell(spell, &[1, 1, 1, 1]), true);
+        assert_eq!(can_cast_spell(spell, &[0, 0, 0, 3]), true);
+        assert_eq!(can_cast_spell(spell, &[0, 0, 0, 0]), false);
+        assert_eq!(can_cast_spell(spell, &[1, 1, 1, 0]), false);
 
         // Test remove 2 ingredients
         let spell = &tome_spells[18]; //[-1, -1, 0, 1]
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[1, 1, 0, 0]), true);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[3, 1, 1, 1]), true);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[0, 3, 1, 1]), false);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[2, 0, 1, 1]), false);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[0, 0, 5, 5]), false);
+        assert_eq!(can_cast_spell(spell, &[1, 1, 0, 0]), true);
+        assert_eq!(can_cast_spell(spell, &[3, 1, 1, 1]), true);
+        assert_eq!(can_cast_spell(spell, &[0, 3, 1, 1]), false);
+        assert_eq!(can_cast_spell(spell, &[2, 0, 1, 1]), false);
+        assert_eq!(can_cast_spell(spell, &[0, 0, 5, 5]), false);
 
         // Test inactive spell
         let mut spell = tome_spells[7].clone(); //[3, 0, 1, -1]
         spell.active = false;
-        assert_eq!(
-            WitchesBrewGame::can_cast_spell(&spell, &[0, 0, 0, 1]),
-            false
-        );
+        assert_eq!(can_cast_spell(&spell, &[0, 0, 0, 1]), false);
 
         // Test no more space
         let spell = &tome_spells[7]; //[3, 0, 1, -1]
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[6, 0, 0, 1]), true);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[7, 0, 0, 1]), false);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[2, 2, 2, 1]), true);
-        assert_eq!(WitchesBrewGame::can_cast_spell(spell, &[2, 2, 2, 2]), false);
+        assert_eq!(can_cast_spell(spell, &[6, 0, 0, 1]), true);
+        assert_eq!(can_cast_spell(spell, &[7, 0, 0, 1]), false);
+        assert_eq!(can_cast_spell(spell, &[2, 2, 2, 1]), true);
+        assert_eq!(can_cast_spell(spell, &[2, 2, 2, 2]), false);
     }
 
     #[test]
     fn test_how_many_times_can_cast_spell() {
-        let tome_spells = WitchesBrewGame::get_tome_spells();
-        let basic_spells = WitchesBrewGame::get_basic_spells();
+        let tome_spells = get_tome_spells();
+        let basic_spells = get_basic_spells();
 
         /* Spell that just adds a single ingredient without removing another */
         let spell = &tome_spells[14]; //[0, 0, 0, 1]
                                       // Spell is not repeatable
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[0, 0, 0, 0]),
-            1
-        );
+        assert_eq!(how_many_times_can_cast_spell(spell, &[0, 0, 0, 0]), 1);
 
         // let's cheat and make it repeatable
         let mut spell = tome_spells[14].clone(); //[0, 0, 0, 1]
         spell.repeatable = true;
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[0, 0, 0, 0]),
-            10
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[0, 0, 0, 5]),
-            5
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[3, 3, 3, 0]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[3, 3, 3, 1]),
-            0
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[0, 0, 0, 10]),
-            0
-        );
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[0, 0, 0, 0]), 10);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[0, 0, 0, 5]), 5);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[3, 3, 3, 0]), 1);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[3, 3, 3, 1]), 0);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[0, 0, 0, 10]), 0);
 
         /* Spell that  adds 2 ingredients without removing another */
         let spell = &tome_spells[2]; //[1, 1, 0, 0]
                                      // Spell is not repeatable
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[0, 0, 0, 0]),
-            1
-        );
+        assert_eq!(how_many_times_can_cast_spell(spell, &[0, 0, 0, 0]), 1);
 
         // let's cheat and make it repeatable
         let mut spell = tome_spells[2].clone(); //[1, 1, 0, 0]
         spell.repeatable = true;
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[0, 0, 0, 0]),
-            5
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[2, 2, 0, 0]),
-            3
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[0, 0, 4, 4]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[3, 3, 3, 1]),
-            0
-        );
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[0, 0, 0, 0]), 5);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[2, 2, 0, 0]), 3);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[0, 0, 4, 4]), 1);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[3, 3, 3, 1]), 0);
 
         /* Spell that adds 1 ingredient and remove 1 ingredient */
         let spell = &basic_spells[1]; //[-1, 1, 0, 0]
                                       // Spell is not repeatable because it's a basic spell
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[5, 0, 0, 0]),
-            1
-        );
+        assert_eq!(how_many_times_can_cast_spell(spell, &[5, 0, 0, 0]), 1);
 
         // let's cheat and make it repeatable
         let mut spell = basic_spells[1].clone(); //[-1, 1, 0, 0]
         spell.repeatable = true;
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[5, 0, 0, 0]),
-            5
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[1, 0, 0, 0]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[10, 0, 0, 0]),
-            10
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[5, 5, 0, 0]),
-            5
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[0, 5, 0, 0]),
-            0
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[0, 0, 0, 0]),
-            0
-        );
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[5, 0, 0, 0]), 5);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[1, 0, 0, 0]), 1);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[10, 0, 0, 0]), 10);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[5, 5, 0, 0]), 5);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[0, 5, 0, 0]), 0);
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[0, 0, 0, 0]), 0);
 
         /* Spell that removes 1 ingredients and add 2 others */
         let spell = &tome_spells[9]; //[2, -3, 2, 0]
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[0, 3, 0, 0]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[0, 5, 0, 0]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[0, 6, 0, 0]),
-            2
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[0, 8, 0, 0]),
-            2
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[0, 9, 0, 0]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[1, 6, 2, 1]),
-            0
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[1, 6, 1, 1]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[2, 3, 2, 2]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[2, 3, 2, 3]),
-            0
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[1, 4, 1, 0]),
-            1
-        );
+        assert_eq!(how_many_times_can_cast_spell(spell, &[0, 3, 0, 0]), 1);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[0, 5, 0, 0]), 1);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[0, 6, 0, 0]), 2);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[0, 8, 0, 0]), 2);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[0, 9, 0, 0]), 1);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[1, 6, 2, 1]), 0);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[1, 6, 1, 1]), 1);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[2, 3, 2, 2]), 1);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[2, 3, 2, 3]), 0);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[1, 4, 1, 0]), 1);
 
         /* Another test */
         let spell = &tome_spells[11]; //[-4, 0, 2, 0]
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[4, 0, 0, 0]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[7, 0, 0, 0]),
-            1
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[10, 0, 0, 0]),
-            2
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[8, 1, 1, 0]),
-            2
-        );
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(spell, &[3, 0, 0, 0]),
-            0
-        );
+        assert_eq!(how_many_times_can_cast_spell(spell, &[4, 0, 0, 0]), 1);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[7, 0, 0, 0]), 1);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[10, 0, 0, 0]), 2);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[8, 1, 1, 0]), 2);
+        assert_eq!(how_many_times_can_cast_spell(spell, &[3, 0, 0, 0]), 0);
 
         /* Test inactive spell */
         let mut spell = tome_spells[18].clone(); //[-1, -1, 0, 1]
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[2, 2, 0, 0]),
-            2
-        );
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[2, 2, 0, 0]), 2);
         spell.active = false;
-        assert_eq!(
-            WitchesBrewGame::how_many_times_can_cast_spell(&spell, &[2, 2, 0, 0]),
-            0
-        );
+        assert_eq!(how_many_times_can_cast_spell(&spell, &[2, 2, 0, 0]), 0);
     }
 
     #[test]
     fn test_get_order_position() {
-        let mut orders = WitchesBrewGame::get_all_orders();
+        let mut orders = get_all_orders();
 
-        assert_eq!(
-            WitchesBrewGame::get_order_position(&orders[0..5], 2),
-            Some(2)
-        );
-        assert_eq!(
-            WitchesBrewGame::get_order_position(&orders[0..5], 4),
-            Some(4)
-        );
+        assert_eq!(get_order_position(&orders[0..5], 2), Some(2));
+        assert_eq!(get_order_position(&orders[0..5], 4), Some(4));
 
         orders[0].id = 200;
         orders[1].id = 201;
-        assert_eq!(
-            WitchesBrewGame::get_order_position(&orders[0..5], 200),
-            Some(0)
-        );
-        assert_eq!(
-            WitchesBrewGame::get_order_position(&orders[0..5], 201),
-            Some(1)
-        );
-        assert_eq!(
-            WitchesBrewGame::get_order_position(&orders[0..5], 202),
-            None
-        );
+        assert_eq!(get_order_position(&orders[0..5], 200), Some(0));
+        assert_eq!(get_order_position(&orders[0..5], 201), Some(1));
+        assert_eq!(get_order_position(&orders[0..5], 202), None);
     }
 
     #[test]
     fn test_get_spell_position() {
-        let mut spells = WitchesBrewGame::get_tome_spells();
-        assert_eq!(
-            WitchesBrewGame::get_spell_position(&spells[0..6], 2),
-            Some(2)
-        );
-        assert_eq!(
-            WitchesBrewGame::get_spell_position(&spells[0..6], 5),
-            Some(5)
-        );
+        let mut spells = get_tome_spells();
+        assert_eq!(get_spell_position(&spells[0..6], 2), Some(2));
+        assert_eq!(get_spell_position(&spells[0..6], 5), Some(5));
 
         spells[0].id = 200;
         spells[2].id = 201;
-        assert_eq!(
-            WitchesBrewGame::get_spell_position(&spells[0..6], 200),
-            Some(0)
-        );
-        assert_eq!(
-            WitchesBrewGame::get_spell_position(&spells[0..6], 201),
-            Some(2)
-        );
-        assert_eq!(
-            WitchesBrewGame::get_spell_position(&spells[0..6], 202),
-            None
-        );
+        assert_eq!(get_spell_position(&spells[0..6], 200), Some(0));
+        assert_eq!(get_spell_position(&spells[0..6], 201), Some(2));
+        assert_eq!(get_spell_position(&spells[0..6], 202), None);
     }
 
     #[test]
     fn test_cast_and_update_stock() {
-        let tome_spells = WitchesBrewGame::get_tome_spells();
-        let basic_spells = WitchesBrewGame::get_basic_spells();
+        let tome_spells = get_tome_spells();
+        let basic_spells = get_basic_spells();
 
         let spell = &tome_spells[14]; //[0, 0, 0, 1]
         let mut stock = [0, 0, 0, 0];
-        WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 1);
+        cast_and_update_stock(&mut stock, &spell.recipe, 1);
         assert_eq!(stock, [0, 0, 0, 1]);
 
         let spell = &tome_spells[2]; //[1, 1, 0, 0]
         let mut stock = [0, 0, 0, 0];
-        WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 1);
+        cast_and_update_stock(&mut stock, &spell.recipe, 1);
         assert_eq!(stock, [1, 1, 0, 0]);
 
         let spell = &basic_spells[1]; //[-1, 1, 0, 0]
         let mut stock = [5, 0, 0, 0];
-        WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 1);
+        cast_and_update_stock(&mut stock, &spell.recipe, 1);
         assert_eq!(stock, [4, 1, 0, 0]);
         let mut stock = [5, 0, 0, 0];
-        WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 5);
+        cast_and_update_stock(&mut stock, &spell.recipe, 5);
         assert_eq!(stock, [0, 5, 0, 0]);
 
         let spell = &tome_spells[9]; //[2, -3, 2, 0]
         let mut stock = [0, 3, 0, 0];
-        WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 1);
+        cast_and_update_stock(&mut stock, &spell.recipe, 1);
         assert_eq!(stock, [2, 0, 2, 0]);
         let mut stock = [0, 6, 0, 0];
-        WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 2);
+        cast_and_update_stock(&mut stock, &spell.recipe, 2);
         assert_eq!(stock, [4, 0, 4, 0]);
 
         let spell = &tome_spells[11]; //[-4, 0, 2, 0]
         let mut stock = [7, 0, 0, 0];
-        WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 1);
+        cast_and_update_stock(&mut stock, &spell.recipe, 1);
         assert_eq!(stock, [3, 0, 2, 0]);
         let mut stock = [8, 1, 1, 0];
-        WitchesBrewGame::cast_and_update_stock(&mut stock, &spell.recipe, 2);
+        cast_and_update_stock(&mut stock, &spell.recipe, 2);
         assert_eq!(stock, [0, 1, 5, 0]);
     }
 
     #[test]
     fn test_brew_and_update_stock() {
-        let orders = WitchesBrewGame::get_all_orders();
+        let orders = get_all_orders();
 
         let order = orders[0]; //[2, 2, 0, 0]
         let mut stock = [3, 2, 1, 0];
-        WitchesBrewGame::brew_and_update_stock(&mut stock, &order);
+        brew_and_update_stock(&mut stock, &order);
         assert_eq!(stock, [1, 0, 1, 0]);
 
         let order = orders[27]; //[2, 2, 2, 0]
         let mut stock = [2, 2, 2, 0];
-        WitchesBrewGame::brew_and_update_stock(&mut stock, &order);
+        brew_and_update_stock(&mut stock, &order);
         assert_eq!(stock, [0, 0, 0, 0]);
 
         let order = orders[7]; //[0, 5, 0, 0]
         let mut stock = [0, 10, 0, 0];
-        WitchesBrewGame::brew_and_update_stock(&mut stock, &order);
+        brew_and_update_stock(&mut stock, &order);
         assert_eq!(stock, [0, 5, 0, 0]);
     }
 
@@ -1581,29 +1414,28 @@ mod tests {
         /* Round 1 */
         let player_stock = [3, 0, 0, 0];
         let player_spells = [
-            WitchesBrewGame::find_spell(&[2, 0, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-1, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -1, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 0, -1, 1]).unwrap(),
+            find_spell(&[2, 0, 0, 0]).unwrap(),
+            find_spell(&[-1, 1, 0, 0]).unwrap(),
+            find_spell(&[0, -1, 1, 0]).unwrap(),
+            find_spell(&[0, 0, -1, 1]).unwrap(),
         ];
         let tome = [
-            WitchesBrewGame::find_spell(&[-5, 0, 0, 2]).unwrap(),
-            WitchesBrewGame::find_spell(&[-3, 1, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -3, 0, 2]).unwrap(),
-            WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-1, -1, 0, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[1, 1, 0, 0]).unwrap(),
+            find_spell(&[-5, 0, 0, 2]).unwrap(),
+            find_spell(&[-3, 1, 1, 0]).unwrap(),
+            find_spell(&[0, -3, 0, 2]).unwrap(),
+            find_spell(&[2, 1, 0, 0]).unwrap(),
+            find_spell(&[-1, -1, 0, 1]).unwrap(),
+            find_spell(&[1, 1, 0, 0]).unwrap(),
         ];
         let orders = [
-            WitchesBrewGame::find_order(&[-2, 0, 0, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[0, 0, -2, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[-1, -1, -1, -3]).unwrap(),
-            WitchesBrewGame::find_order(&[-2, 0, 0, -3]).unwrap(),
-            WitchesBrewGame::find_order(&[-3, -1, -1, -1]).unwrap(),
+            find_order(&[-2, 0, 0, -2]).unwrap(),
+            find_order(&[0, 0, -2, -2]).unwrap(),
+            find_order(&[-1, -1, -1, -3]).unwrap(),
+            find_order(&[-2, 0, 0, -3]).unwrap(),
+            find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let valid_moves =
-            WitchesBrewGame::valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
         let expected_moves = [
             Move::CAST(player_spells[0].id, 1),
             Move::CAST(player_spells[1].id, 1),
@@ -1618,35 +1450,34 @@ mod tests {
         /* Round 5 */
         let player_stock = [0, 1, 0, 1];
         let mut player_spells = [
-            WitchesBrewGame::find_spell(&[2, 0, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-1, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -1, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 0, -1, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -3, 0, 2]).unwrap(),
-            WitchesBrewGame::find_spell(&[-3, 1, 1, 0]).unwrap(),
+            find_spell(&[2, 0, 0, 0]).unwrap(),
+            find_spell(&[-1, 1, 0, 0]).unwrap(),
+            find_spell(&[0, -1, 1, 0]).unwrap(),
+            find_spell(&[0, 0, -1, 1]).unwrap(),
+            find_spell(&[0, -3, 0, 2]).unwrap(),
+            find_spell(&[-3, 1, 1, 0]).unwrap(),
         ];
         player_spells[0].active = false;
         player_spells[3].active = false;
         player_spells[5].active = false;
 
         let tome = [
-            WitchesBrewGame::find_spell(&[-5, 0, 0, 2]).unwrap(),
-            WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-1, -1, 0, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[1, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[2, -2, 0, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[-4, 0, 2, 0]).unwrap(),
+            find_spell(&[-5, 0, 0, 2]).unwrap(),
+            find_spell(&[2, 1, 0, 0]).unwrap(),
+            find_spell(&[-1, -1, 0, 1]).unwrap(),
+            find_spell(&[1, 1, 0, 0]).unwrap(),
+            find_spell(&[2, -2, 0, 1]).unwrap(),
+            find_spell(&[-4, 0, 2, 0]).unwrap(),
         ];
         let orders = [
-            WitchesBrewGame::find_order(&[-2, 0, 0, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[0, 0, -2, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[-1, -1, -1, -3]).unwrap(),
-            WitchesBrewGame::find_order(&[-2, 0, 0, -3]).unwrap(),
-            WitchesBrewGame::find_order(&[-3, -1, -1, -1]).unwrap(),
+            find_order(&[-2, 0, 0, -2]).unwrap(),
+            find_order(&[0, 0, -2, -2]).unwrap(),
+            find_order(&[-1, -1, -1, -3]).unwrap(),
+            find_order(&[-2, 0, 0, -3]).unwrap(),
+            find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let valid_moves =
-            WitchesBrewGame::valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
         let expected_moves = [
             Move::CAST(player_spells[2].id, 1),
             Move::LEARN(tome[0].id),
@@ -1657,13 +1488,13 @@ mod tests {
         /* Round 13 */
         let player_stock = [2, 1, 1, 2];
         let mut player_spells = [
-            WitchesBrewGame::find_spell(&[2, 0, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-1, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -1, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 0, -1, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -3, 0, 2]).unwrap(),
-            WitchesBrewGame::find_spell(&[-3, 1, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-5, 0, 0, 2]).unwrap(),
+            find_spell(&[2, 0, 0, 0]).unwrap(),
+            find_spell(&[-1, 1, 0, 0]).unwrap(),
+            find_spell(&[0, -1, 1, 0]).unwrap(),
+            find_spell(&[0, 0, -1, 1]).unwrap(),
+            find_spell(&[0, -3, 0, 2]).unwrap(),
+            find_spell(&[-3, 1, 1, 0]).unwrap(),
+            find_spell(&[-5, 0, 0, 2]).unwrap(),
         ];
         player_spells[0].active = false;
         player_spells[1].active = false;
@@ -1671,23 +1502,22 @@ mod tests {
         player_spells[3].active = false;
 
         let tome = [
-            WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-1, -1, 0, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[1, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[2, -2, 0, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[-4, 0, 2, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[3, -1, 0, 0]).unwrap(),
+            find_spell(&[2, 1, 0, 0]).unwrap(),
+            find_spell(&[-1, -1, 0, 1]).unwrap(),
+            find_spell(&[1, 1, 0, 0]).unwrap(),
+            find_spell(&[2, -2, 0, 1]).unwrap(),
+            find_spell(&[-4, 0, 2, 0]).unwrap(),
+            find_spell(&[3, -1, 0, 0]).unwrap(),
         ];
         let orders = [
-            WitchesBrewGame::find_order(&[-2, 0, 0, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[0, 0, -2, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[-1, -1, -1, -3]).unwrap(),
-            WitchesBrewGame::find_order(&[-2, 0, 0, -3]).unwrap(),
-            WitchesBrewGame::find_order(&[-3, -1, -1, -1]).unwrap(),
+            find_order(&[-2, 0, 0, -2]).unwrap(),
+            find_order(&[0, 0, -2, -2]).unwrap(),
+            find_order(&[-1, -1, -1, -3]).unwrap(),
+            find_order(&[-2, 0, 0, -3]).unwrap(),
+            find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let valid_moves =
-            WitchesBrewGame::valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
         let expected_moves = [
             Move::LEARN(tome[0].id),
             Move::LEARN(tome[1].id),
@@ -1700,36 +1530,35 @@ mod tests {
         /* Round 17 */
         let player_stock = [0, 3, 1, 0];
         let player_spells = [
-            WitchesBrewGame::find_spell(&[2, 0, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-1, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -1, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 0, -1, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 3, 0, -1]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 0, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-2, 0, -1, 2]).unwrap(),
+            find_spell(&[2, 0, 0, 0]).unwrap(),
+            find_spell(&[-1, 1, 0, 0]).unwrap(),
+            find_spell(&[0, -1, 1, 0]).unwrap(),
+            find_spell(&[0, 0, -1, 1]).unwrap(),
+            find_spell(&[0, 3, 0, -1]).unwrap(),
+            find_spell(&[0, 0, 1, 0]).unwrap(),
+            find_spell(&[-2, 0, -1, 2]).unwrap(),
         ];
         let mut tome = [
-            WitchesBrewGame::find_spell(&[0, -3, 3, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-2, 0, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[1, 0, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[1, 1, 1, -1]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -2, 2, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 0, 0, 1]).unwrap(),
+            find_spell(&[0, -3, 3, 0]).unwrap(),
+            find_spell(&[-2, 0, 1, 0]).unwrap(),
+            find_spell(&[1, 0, 1, 0]).unwrap(),
+            find_spell(&[1, 1, 1, -1]).unwrap(),
+            find_spell(&[0, -2, 2, 0]).unwrap(),
+            find_spell(&[0, 0, 0, 1]).unwrap(),
         ];
         tome[0].tax = 3;
         tome[1].tax = 1;
         tome[2].tax = 1;
 
         let orders = [
-            WitchesBrewGame::find_order(&[0, -2, -2, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[0, -2, 0, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[0, 0, -2, -3]).unwrap(),
-            WitchesBrewGame::find_order(&[-1, -1, -1, -1]).unwrap(),
-            WitchesBrewGame::find_order(&[0, 0, 0, -4]).unwrap(),
+            find_order(&[0, -2, -2, -2]).unwrap(),
+            find_order(&[0, -2, 0, -2]).unwrap(),
+            find_order(&[0, 0, -2, -3]).unwrap(),
+            find_order(&[-1, -1, -1, -1]).unwrap(),
+            find_order(&[0, 0, 0, -4]).unwrap(),
         ];
 
-        let valid_moves =
-            WitchesBrewGame::valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
         let expected_moves = [
             Move::CAST(player_spells[0].id, 1),
             Move::CAST(player_spells[2].id, 1),
@@ -1745,13 +1574,13 @@ mod tests {
         /* Test that when I can cast a spell multiple times, there's a CAST action for each 1..n*/
         let player_stock = [0, 0, 1, 2];
         let mut player_spells = [
-            WitchesBrewGame::find_spell(&[2, 0, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-1, 1, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, -1, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 0, -1, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[1, 0, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[-3, 0, 0, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[2, 2, 0, -1]).unwrap(),
+            find_spell(&[2, 0, 0, 0]).unwrap(),
+            find_spell(&[-1, 1, 0, 0]).unwrap(),
+            find_spell(&[0, -1, 1, 0]).unwrap(),
+            find_spell(&[0, 0, -1, 1]).unwrap(),
+            find_spell(&[1, 0, 1, 0]).unwrap(),
+            find_spell(&[-3, 0, 0, 1]).unwrap(),
+            find_spell(&[2, 2, 0, -1]).unwrap(),
         ];
         player_spells[0].active = false;
         player_spells[1].active = false;
@@ -1760,23 +1589,22 @@ mod tests {
         player_spells[4].active = false;
         player_spells[5].active = false;
         let tome = [
-            WitchesBrewGame::find_spell(&[0, 2, 0, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[3, -2, 1, 0]).unwrap(),
-            WitchesBrewGame::find_spell(&[0, 3, 2, -2]).unwrap(),
-            WitchesBrewGame::find_spell(&[2, -2, 0, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[-4, 0, 1, 1]).unwrap(),
-            WitchesBrewGame::find_spell(&[-2, 0, -1, 2]).unwrap(),
+            find_spell(&[0, 2, 0, 0]).unwrap(),
+            find_spell(&[3, -2, 1, 0]).unwrap(),
+            find_spell(&[0, 3, 2, -2]).unwrap(),
+            find_spell(&[2, -2, 0, 1]).unwrap(),
+            find_spell(&[-4, 0, 1, 1]).unwrap(),
+            find_spell(&[-2, 0, -1, 2]).unwrap(),
         ];
         let orders = [
-            WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap(),
-            WitchesBrewGame::find_order(&[0, -2, -2, -2]).unwrap(),
-            WitchesBrewGame::find_order(&[0, -2, -3, 0]).unwrap(),
-            WitchesBrewGame::find_order(&[-1, -1, -1, -1]).unwrap(),
-            WitchesBrewGame::find_order(&[-3, 0, -2, 0]).unwrap(),
+            find_order(&[0, -5, 0, 0]).unwrap(),
+            find_order(&[0, -2, -2, -2]).unwrap(),
+            find_order(&[0, -2, -3, 0]).unwrap(),
+            find_order(&[-1, -1, -1, -1]).unwrap(),
+            find_order(&[-3, 0, -2, 0]).unwrap(),
         ];
 
-        let valid_moves =
-            WitchesBrewGame::valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
 
         let expected_moves = [
             Move::CAST(player_spells[6].id, 1),
@@ -1795,7 +1623,7 @@ mod tests {
             stock: [0, 0, 0, 0],
             spells: {
                 let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
-                let basic_spells = WitchesBrewGame::get_basic_spells();
+                let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
                 }
@@ -1807,24 +1635,24 @@ mod tests {
         let players: [Player; 2] = [player.clone(), player.clone()];
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, -3, 2, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 2, -2, 1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 0, 1, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 2, 0, -1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[1, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, -3, 2, 0]).unwrap());
+        tome_spells.add(find_spell(&[0, 2, -2, 1]).unwrap());
+        tome_spells.add(find_spell(&[0, 0, 1, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 2, 0, -1]).unwrap());
+        tome_spells.add(find_spell(&[1, 1, 0, 0]).unwrap());
         tome_spells.get_mut(0).tax = 3;
 
         let learned_spell_id = tome_spells.get(0).id;
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
-        counter_orders.add(WitchesBrewGame::find_order(&[-3, -1, -1, -1]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -5, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -2, 0, -2]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -3, -2]).unwrap());
+        counter_orders.add(find_order(&[-3, -1, -1, -1]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -5, 0]).unwrap());
+        counter_orders.add(find_order(&[0, -2, 0, -2]).unwrap());
+        counter_orders.add(find_order(&[0, -5, 0, 0]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -3, -2]).unwrap());
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 3, 3, 0);
+        let mut game = new_init(players, tome_spells, counter_orders, 3, 3, 0);
 
         game.play(format!("LEARN {}", learned_spell_id));
         game.play(format!("LEARN {}", learned_spell_id));
@@ -1844,7 +1672,7 @@ mod tests {
             stock: [0, 3, 3, 3],
             spells: {
                 let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
-                let basic_spells = WitchesBrewGame::get_basic_spells();
+                let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
                 }
@@ -1859,7 +1687,7 @@ mod tests {
             stock: [3, 3, 3, 1],
             spells: {
                 let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
-                let basic_spells = WitchesBrewGame::get_basic_spells();
+                let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
                 }
@@ -1871,24 +1699,24 @@ mod tests {
         let players: [Player; 2] = [player0, player1];
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, -3, 2, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 2, -2, 1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 0, 1, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 2, 0, -1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[1, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, -3, 2, 0]).unwrap());
+        tome_spells.add(find_spell(&[0, 2, -2, 1]).unwrap());
+        tome_spells.add(find_spell(&[0, 0, 1, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 2, 0, -1]).unwrap());
+        tome_spells.add(find_spell(&[1, 1, 0, 0]).unwrap());
         tome_spells.get_mut(0).tax = 3;
 
         let learned_spell_id = tome_spells.get(0).id;
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
-        counter_orders.add(WitchesBrewGame::find_order(&[-3, -1, -1, -1]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -5, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -2, 0, -2]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -3, -2]).unwrap());
+        counter_orders.add(find_order(&[-3, -1, -1, -1]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -5, 0]).unwrap());
+        counter_orders.add(find_order(&[0, -2, 0, -2]).unwrap());
+        counter_orders.add(find_order(&[0, -5, 0, 0]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -3, -2]).unwrap());
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 3, 3, 0);
+        let mut game = new_init(players, tome_spells, counter_orders, 3, 3, 0);
 
         game.play(format!("LEARN {}", learned_spell_id));
         game.play(format!("LEARN {}", learned_spell_id));
@@ -1907,7 +1735,7 @@ mod tests {
             stock: [3, 1, 1, 1],
             spells: {
                 let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
-                let basic_spells = WitchesBrewGame::get_basic_spells();
+                let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
                 }
@@ -1919,25 +1747,25 @@ mod tests {
         let players: [Player; 2] = [player.clone(), player.clone()];
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, -3, 2, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 2, -2, 1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 0, 1, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 2, 0, -1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[1, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, -3, 2, 0]).unwrap());
+        tome_spells.add(find_spell(&[0, 2, -2, 1]).unwrap());
+        tome_spells.add(find_spell(&[0, 0, 1, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 2, 0, -1]).unwrap());
+        tome_spells.add(find_spell(&[1, 1, 0, 0]).unwrap());
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
-        counter_orders.add(WitchesBrewGame::find_order(&[-3, -1, -1, -1]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -5, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -2, 0, -2]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -3, -2]).unwrap());
+        counter_orders.add(find_order(&[-3, -1, -1, -1]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -5, 0]).unwrap());
+        counter_orders.add(find_order(&[0, -2, 0, -2]).unwrap());
+        counter_orders.add(find_order(&[0, -5, 0, 0]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -3, -2]).unwrap());
         counter_orders.get_mut(0).bonus = 3;
         counter_orders.get_mut(1).bonus = 1;
         let earned_rupees = counter_orders.get(0).price;
         let fullfilled_order_id = counter_orders.get(0).id;
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 4, 4, 0);
+        let mut game = new_init(players, tome_spells, counter_orders, 4, 4, 0);
 
         game.play(format!("BREW {}", fullfilled_order_id));
         game.play(format!("BREW {}", fullfilled_order_id));
@@ -1959,7 +1787,7 @@ mod tests {
             stock: [3, 1, 1, 1],
             spells: {
                 let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
-                let basic_spells = WitchesBrewGame::get_basic_spells();
+                let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
                 }
@@ -1971,25 +1799,25 @@ mod tests {
         let players: [Player; 2] = [player.clone(), player.clone()];
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, -3, 2, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 2, -2, 1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 0, 1, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 2, 0, -1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[1, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, -3, 2, 0]).unwrap());
+        tome_spells.add(find_spell(&[0, 2, -2, 1]).unwrap());
+        tome_spells.add(find_spell(&[0, 0, 1, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 2, 0, -1]).unwrap());
+        tome_spells.add(find_spell(&[1, 1, 0, 0]).unwrap());
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
-        counter_orders.add(WitchesBrewGame::find_order(&[-3, -1, -1, -1]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -5, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -2, 0, -2]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -3, -2]).unwrap());
+        counter_orders.add(find_order(&[-3, -1, -1, -1]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -5, 0]).unwrap());
+        counter_orders.add(find_order(&[0, -2, 0, -2]).unwrap());
+        counter_orders.add(find_order(&[0, -5, 0, 0]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -3, -2]).unwrap());
         counter_orders.get_mut(0).bonus = 3;
         counter_orders.get_mut(1).bonus = 1;
         let earned_rupees = counter_orders.get(0).price;
         let fullfilled_order_id = counter_orders.get(0).id;
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 2, 4, 0);
+        let mut game = new_init(players, tome_spells, counter_orders, 2, 4, 0);
 
         game.play(format!("BREW {}", fullfilled_order_id));
         game.play(format!("BREW {}", fullfilled_order_id));
@@ -2013,7 +1841,7 @@ mod tests {
             stock: [3, 1, 5, 1],
             spells: {
                 let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
-                let basic_spells = WitchesBrewGame::get_basic_spells();
+                let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
                 }
@@ -2025,19 +1853,19 @@ mod tests {
         let players: [Player; 2] = [player.clone(), player.clone()];
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 1, 0, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, -3, 2, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 2, -2, 1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[0, 0, 1, 0]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[2, 2, 0, -1]).unwrap());
-        tome_spells.add(WitchesBrewGame::find_spell(&[1, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 1, 0, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, -3, 2, 0]).unwrap());
+        tome_spells.add(find_spell(&[0, 2, -2, 1]).unwrap());
+        tome_spells.add(find_spell(&[0, 0, 1, 0]).unwrap());
+        tome_spells.add(find_spell(&[2, 2, 0, -1]).unwrap());
+        tome_spells.add(find_spell(&[1, 1, 0, 0]).unwrap());
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
-        counter_orders.add(WitchesBrewGame::find_order(&[-3, -1, -1, -1]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -5, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -2, 0, -2]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, -5, 0, 0]).unwrap());
-        counter_orders.add(WitchesBrewGame::find_order(&[0, 0, -3, -2]).unwrap());
+        counter_orders.add(find_order(&[-3, -1, -1, -1]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -5, 0]).unwrap());
+        counter_orders.add(find_order(&[0, -2, 0, -2]).unwrap());
+        counter_orders.add(find_order(&[0, -5, 0, 0]).unwrap());
+        counter_orders.add(find_order(&[0, 0, -3, -2]).unwrap());
         counter_orders.get_mut(0).bonus = 3;
         counter_orders.get_mut(1).bonus = 1;
         let earned_rupees0 = counter_orders.get(0).price;
@@ -2045,7 +1873,7 @@ mod tests {
         let fullfilled_order0_id = counter_orders.get(0).id;
         let fullfilled_order1_id = counter_orders.get(1).id;
 
-        let mut game = WitchesBrewGame::new_init(players, tome_spells, counter_orders, 1, 1, 0);
+        let mut game = new_init(players, tome_spells, counter_orders, 1, 1, 0);
 
         game.play(format!("BREW {}", fullfilled_order0_id));
         game.play(format!("BREW {}", fullfilled_order1_id));
@@ -2063,7 +1891,7 @@ mod tests {
 
     #[test]
     fn test_update_counter_orders() {
-        let mut queued_orders = WitchesBrewGame::get_all_orders();
+        let mut queued_orders = get_all_orders();
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
         let mut counter_orders_ids: [u32; 5] = [0; 5];
@@ -2082,7 +1910,7 @@ mod tests {
 
         let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
 
-        WitchesBrewGame::update_counter_orders(
+        update_counter_orders(
             &mut counter_orders,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
@@ -2103,7 +1931,7 @@ mod tests {
 
     #[test]
     fn test_update_counter_orders_same_order() {
-        let mut queued_orders = WitchesBrewGame::get_all_orders();
+        let mut queued_orders = get_all_orders();
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
         let mut counter_orders_ids: [u32; 5] = [0; 5];
@@ -2122,7 +1950,7 @@ mod tests {
 
         let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(0)];
 
-        WitchesBrewGame::update_counter_orders(
+        update_counter_orders(
             &mut counter_orders,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
@@ -2141,7 +1969,7 @@ mod tests {
 
     #[test]
     fn test_update_counter_orders_1_order() {
-        let mut queued_orders = WitchesBrewGame::get_all_orders();
+        let mut queued_orders = get_all_orders();
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
         let mut counter_orders_ids: [u32; 5] = [0; 5];
@@ -2160,7 +1988,7 @@ mod tests {
 
         let orders_to_remove_pos: [Option<usize>; 2] = [None, Some(2)];
 
-        WitchesBrewGame::update_counter_orders(
+        update_counter_orders(
             &mut counter_orders,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
@@ -2182,7 +2010,7 @@ mod tests {
 
     #[test]
     fn test_update_counter_orders_no_plus_3_remaining_same_order() {
-        let mut queued_orders = WitchesBrewGame::get_all_orders();
+        let mut queued_orders = get_all_orders();
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
         let mut counter_orders_ids: [u32; 5] = [0; 5];
@@ -2201,7 +2029,7 @@ mod tests {
 
         let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(0)];
 
-        WitchesBrewGame::update_counter_orders(
+        update_counter_orders(
             &mut counter_orders,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
@@ -2221,7 +2049,7 @@ mod tests {
 
     #[test]
     fn test_update_counter_orders_no_plus_3_plus_1_remaining() {
-        let mut queued_orders = WitchesBrewGame::get_all_orders();
+        let mut queued_orders = get_all_orders();
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
         let mut counter_orders_ids: [u32; 5] = [0; 5];
@@ -2240,7 +2068,7 @@ mod tests {
 
         let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
 
-        WitchesBrewGame::update_counter_orders(
+        update_counter_orders(
             &mut counter_orders,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
@@ -2261,7 +2089,7 @@ mod tests {
 
     #[test]
     fn test_update_counter_orders_1_order_left() {
-        let mut queued_orders = WitchesBrewGame::get_all_orders();
+        let mut queued_orders = get_all_orders();
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
         let mut counter_orders_ids: [u32; 5] = [0; 5];
@@ -2282,7 +2110,7 @@ mod tests {
 
         let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
 
-        WitchesBrewGame::update_counter_orders(
+        update_counter_orders(
             &mut counter_orders,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
@@ -2301,7 +2129,7 @@ mod tests {
 
     #[test]
     fn test_update_counter_orders_no_order_left() {
-        let mut queued_orders = WitchesBrewGame::get_all_orders();
+        let mut queued_orders = get_all_orders();
 
         let mut counter_orders: StackVector<Order, 5> = StackVector::new();
         let mut counter_orders_ids: [u32; 5] = [0; 5];
@@ -2322,7 +2150,7 @@ mod tests {
 
         let orders_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
 
-        WitchesBrewGame::update_counter_orders(
+        update_counter_orders(
             &mut counter_orders,
             &mut queued_orders,
             &mut plus_3_bonus_remaining,
@@ -2338,7 +2166,7 @@ mod tests {
 
     #[test]
     fn test_update_tome_spells_no_spells_left() {
-        let mut queued_spells = WitchesBrewGame::get_tome_spells();
+        let mut queued_spells = get_tome_spells();
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
         let mut tome_spells_ids: [u32; 6] = [0; 6];
@@ -2354,7 +2182,7 @@ mod tests {
         let spells_to_remove_pos: [Option<usize>; 2] = [Some(0), Some(1)];
         let spell_tax_payed: [Option<usize>; 2] = [Some(0), Some(1)];
 
-        WitchesBrewGame::update_tome_spells(
+        update_tome_spells(
             &mut tome_spells,
             &mut queued_spells,
             &spells_to_remove_pos,
@@ -2366,7 +2194,7 @@ mod tests {
 
     #[test]
     fn test_update_tome_spells_no_spell_to_place_tax() {
-        let mut queued_spells = WitchesBrewGame::get_tome_spells();
+        let mut queued_spells = get_tome_spells();
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
         let mut tome_spells_ids: [u32; 6] = [0; 6];
@@ -2382,7 +2210,7 @@ mod tests {
         let spells_to_remove_pos: [Option<usize>; 2] = [Some(2), Some(1)];
         let spell_tax_payed: [Option<usize>; 2] = [Some(2), Some(1)];
 
-        WitchesBrewGame::update_tome_spells(
+        update_tome_spells(
             &mut tome_spells,
             &mut queued_spells,
             &spells_to_remove_pos,
