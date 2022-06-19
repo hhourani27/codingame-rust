@@ -66,12 +66,13 @@ impl Default for Move {
     }
 }
 
-type Ingredients = [i8; 4];
+type Recipe = [i8; 4];
+type Stock = [i8; 4];
 
 #[derive(Copy, Clone, Default)]
 struct Order {
     id: u32,
-    recipe: Ingredients,
+    recipe: Recipe,
     price: u8,
     bonus: u8,
 }
@@ -79,7 +80,7 @@ struct Order {
 #[derive(Copy, Clone, Default, Debug)]
 struct Spell {
     id: u32,
-    recipe: Ingredients,
+    recipe: Recipe,
     delta_stock: i8,
     tax: u8,
     repeatable: bool,
@@ -89,7 +90,7 @@ struct Spell {
 #[derive(Clone)]
 struct Player {
     move_: Move,
-    stock: Ingredients,
+    stock: Stock,
     spells: StackVector<Spell, MAX_PLAYER_SPELLS>,
     rupees: u32,
     brewed_potions_count: u8,
@@ -115,7 +116,7 @@ pub struct WitchesBrewGame {
 }
 
 fn get_tome_spells() -> Vec<Spell> {
-    let spells: Vec<Ingredients> = vec![
+    let spells: Vec<Recipe> = vec![
         [-3, 0, 0, 1],
         [3, -1, 0, 0],
         [1, 1, 0, 0],
@@ -212,7 +213,7 @@ fn get_basic_spells() -> [Spell; 4] {
 }
 
 #[allow(dead_code)]
-fn find_spell(recipe: &Ingredients) -> Option<Spell> {
+fn find_spell(recipe: &Recipe) -> Option<Spell> {
     for spell in get_tome_spells().iter() {
         if spell.recipe == *recipe {
             return Some(spell.clone());
@@ -228,7 +229,7 @@ fn find_spell(recipe: &Ingredients) -> Option<Spell> {
 }
 
 fn get_all_orders() -> Vec<Order> {
-    let orders: Vec<(Ingredients, u8)> = vec![
+    let orders: Vec<(Recipe, u8)> = vec![
         ([2, 2, 0, 0], 6),
         ([3, 2, 0, 0], 7),
         ([0, 4, 0, 0], 8),
@@ -280,7 +281,7 @@ fn get_all_orders() -> Vec<Order> {
 }
 
 #[allow(dead_code)]
-fn find_order(recipe: &Ingredients) -> Option<Order> {
+fn find_order(recipe: &Recipe) -> Option<Order> {
     for order in get_all_orders().iter() {
         if order.recipe == *recipe {
             return Some(order.clone());
@@ -290,14 +291,14 @@ fn find_order(recipe: &Ingredients) -> Option<Order> {
     None
 }
 
-fn can_fulfill_order(order: &Order, stock: &Ingredients) -> bool {
+fn can_fulfill_order(order: &Order, stock: &Stock) -> bool {
     stock[0] >= -order.recipe[0]
         && stock[1] >= -order.recipe[1]
         && stock[2] >= -order.recipe[2]
         && stock[3] >= -order.recipe[3]
 }
 
-fn can_cast_spell(spell: &Spell, stock: &Ingredients) -> bool {
+fn can_cast_spell(spell: &Spell, stock: &Stock) -> bool {
     if spell.active == false {
         return false;
     }
@@ -316,7 +317,7 @@ fn can_cast_spell(spell: &Spell, stock: &Ingredients) -> bool {
 }
 
 /* Return how many times the spell can be cast */
-fn how_many_times_can_cast_spell(spell: &Spell, stock: &Ingredients) -> u8 {
+fn how_many_times_can_cast_spell(spell: &Spell, stock: &Stock) -> u8 {
     if spell.active == false {
         return 0;
     }
@@ -357,7 +358,7 @@ fn get_spell_position(spells: &[Spell], spell_id: u32) -> Option<usize> {
     None
 }
 
-fn cast_and_update_stock(stock: &mut Ingredients, recipe: &Ingredients, times: u8) {
+fn cast_and_update_stock(stock: &mut Stock, recipe: &Recipe, times: u8) {
     for _ in 0..times {
         for i in 0..4 {
             stock[i] += recipe[i];
@@ -365,7 +366,7 @@ fn cast_and_update_stock(stock: &mut Ingredients, recipe: &Ingredients, times: u
     }
 }
 
-fn brew_and_update_stock(stock: &mut Ingredients, order: &Order) {
+fn brew_and_update_stock(stock: &mut Stock, order: &Order) {
     for i in 0..4 {
         stock[i] += order.recipe[i];
     }
@@ -509,7 +510,7 @@ fn valid_moves(
     orders: &[Order],
     tome_spells: &[Spell],
     player_spells: &[Spell],
-    stock: &Ingredients,
+    stock: &Stock,
 ) -> StackVector<Move, MAX_VALID_MOVES> {
     // There's at max 10 possible moves : 5 orders, 4 spells + REST
     let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector {
@@ -1069,7 +1070,7 @@ impl Game for WitchesBrewGame {
         for pid in 0..=1 {
             let player: &Player = &self.players[pid];
 
-            fn fmt_stock(ingredients: &Ingredients) -> String {
+            fn fmt_stock(ingredients: &Recipe) -> String {
                 format!(
                     "[🔵: {}, 🟢: {}, 🟠: {}, 🟡: {}]",
                     ingredients[0], ingredients[1], ingredients[2], ingredients[3]
@@ -1435,7 +1436,7 @@ mod tests {
             find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
         let expected_moves = [
             Move::CAST(player_spells[0].id, 1),
             Move::CAST(player_spells[1].id, 1),
@@ -1445,7 +1446,7 @@ mod tests {
             Move::LEARN(tome[3].id),
         ];
 
-        assert_vec_eq!(valid_moves.slice(), &expected_moves);
+        assert_vec_eq!(vm.slice(), &expected_moves);
 
         /* Round 5 */
         let player_stock = [0, 1, 0, 1];
@@ -1477,13 +1478,13 @@ mod tests {
             find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
         let expected_moves = [
             Move::CAST(player_spells[2].id, 1),
             Move::LEARN(tome[0].id),
             Move::REST,
         ];
-        assert_vec_eq!(valid_moves.slice(), &expected_moves);
+        assert_vec_eq!(vm.slice(), &expected_moves);
 
         /* Round 13 */
         let player_stock = [2, 1, 1, 2];
@@ -1517,7 +1518,7 @@ mod tests {
             find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
         let expected_moves = [
             Move::LEARN(tome[0].id),
             Move::LEARN(tome[1].id),
@@ -1525,7 +1526,7 @@ mod tests {
             Move::BREW(orders[0].id),
             Move::REST,
         ];
-        assert_vec_eq!(valid_moves.slice(), &expected_moves);
+        assert_vec_eq!(vm.slice(), &expected_moves);
 
         /* Round 17 */
         let player_stock = [0, 3, 1, 0];
@@ -1558,7 +1559,7 @@ mod tests {
             find_order(&[0, 0, 0, -4]).unwrap(),
         ];
 
-        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
         let expected_moves = [
             Move::CAST(player_spells[0].id, 1),
             Move::CAST(player_spells[2].id, 1),
@@ -1566,7 +1567,7 @@ mod tests {
             Move::CAST(player_spells[5].id, 1),
             Move::LEARN(tome[0].id),
         ];
-        assert_vec_eq!(valid_moves.slice(), &expected_moves);
+        assert_vec_eq!(vm.slice(), &expected_moves);
     }
 
     #[test]
@@ -1604,7 +1605,7 @@ mod tests {
             find_order(&[-3, 0, -2, 0]).unwrap(),
         ];
 
-        let valid_moves = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
 
         let expected_moves = [
             Move::CAST(player_spells[6].id, 1),
@@ -1612,7 +1613,7 @@ mod tests {
             Move::LEARN(tome[0].id),
             Move::REST,
         ];
-        assert_vec_eq!(valid_moves.slice(), &expected_moves);
+        assert_vec_eq!(vm.slice(), &expected_moves);
     }
 
     #[test]
