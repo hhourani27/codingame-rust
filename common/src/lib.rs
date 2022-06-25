@@ -17,12 +17,13 @@ pub struct Message {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct StackVector<T: Copy + Clone + Default, const MAX_SIZE: usize> {
     pub arr: [T; MAX_SIZE],
     pub len: usize,
 }
 
+#[allow(dead_code)]
 impl<T: Copy + Clone + Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
     pub fn new() -> Self {
         Self {

@@ -55,7 +55,7 @@ impl Move {
             Move::REST => format!("REST"),
             Move::BREW(i) => format!("BREW {}", i),
             Move::CAST(i, 1) => format!("CAST {}", i),
-            Move::CAST(i, t) => format!("CAST {}x{}", i, t),
+            Move::CAST(i, t) => format!("CAST {} {}", i, t),
             Move::LEARN(i) => format!("LEARN {}", i),
         }
     }
@@ -125,8 +125,8 @@ pub struct WitchesBrewGame {
 #[allow(non_snake_case)]
 struct Cache {
     map_stockArr4_stockId: Vec<Vec<Vec<Vec<usize>>>>,
-    map_stockId_timesCanCastSpell: Vec<Vec<u8>>,
-    map_stockId_canFullfillOrder: Vec<Vec<bool>>,
+    map_stockId_timesCanCastSpell: [[u8; EXISTING_SPELL_COUNT]; 1001],
+    map_stockId_canFullfillOrder: [[bool; EXISTING_ORDER_COUNT]; 1001],
 }
 
 #[allow(non_snake_case)]
@@ -142,15 +142,19 @@ impl Cache {
         }
     }
 
-    fn init_map_stocks() -> (Vec<Vec<Vec<Vec<usize>>>>, Vec<Vec<u8>>, Vec<Vec<bool>>) {
+    fn init_map_stocks() -> (
+        Vec<Vec<Vec<Vec<usize>>>>,
+        [[u8; EXISTING_SPELL_COUNT]; 1001],
+        [[bool; EXISTING_ORDER_COUNT]; 1001],
+    ) {
         let mut map_stockArr4_stockId: Vec<Vec<Vec<Vec<usize>>>> =
             vec![vec![vec![vec![0; 11]; 11]; 11]; 11];
 
-        let mut map_stockId_timesCanCastSpell: Vec<Vec<u8>> =
-            vec![vec![0; EXISTING_SPELL_COUNT]; 1001];
+        let mut map_stockId_timesCanCastSpell: [[u8; EXISTING_SPELL_COUNT]; 1001] =
+            [[0; EXISTING_SPELL_COUNT]; 1001];
 
-        let mut map_stockId_canFullfillOrder: Vec<Vec<bool>> =
-            vec![vec![false; EXISTING_ORDER_COUNT]; 1001];
+        let mut map_stockId_canFullfillOrder: [[bool; EXISTING_ORDER_COUNT]; 1001] =
+            [[false; EXISTING_ORDER_COUNT]; 1001];
 
         let all_spells = get_all_tome_spells();
         let all_orders = get_all_orders();
@@ -638,6 +642,7 @@ fn valid_moves(
     }
 
     /* LEARN moves */
+    // TODO: optimize this
     for (t, spell) in tome_spells.iter().enumerate() {
         if t as u8 <= player_stock[0] as u8 {
             valid_moves.add(Move::LEARN(spell.id));
