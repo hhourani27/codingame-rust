@@ -115,7 +115,7 @@ pub struct WitchesBrewGame {
     winners: Option<(WinLossTie, WinLossTie)>,
 }
 
-fn get_tome_spells() -> Vec<Spell> {
+fn get_learnable_tome_spells() -> Vec<Spell> {
     let spells: Vec<Recipe> = vec![
         [-3, 0, 0, 1],
         [3, -1, 0, 0],
@@ -175,7 +175,7 @@ fn get_tome_spells() -> Vec<Spell> {
         .collect::<Vec<Spell>>()
 }
 
-fn get_basic_spells() -> [Spell; 4] {
+fn get_basic_spells() -> Vec<Spell> {
     [
         Spell {
             id: 42,
@@ -210,16 +210,19 @@ fn get_basic_spells() -> [Spell; 4] {
             active: true,
         },
     ]
+    .to_vec()
+}
+
+fn get_all_tome_spells() -> Vec<Spell> {
+    let mut tome_spells = get_learnable_tome_spells();
+    tome_spells.extend_from_slice(&get_basic_spells());
+
+    tome_spells
 }
 
 #[allow(dead_code)]
 fn find_spell(recipe: &Recipe) -> Option<Spell> {
-    for spell in get_tome_spells().iter() {
-        if spell.recipe == *recipe {
-            return Some(spell.clone());
-        }
-    }
-    for spell in get_basic_spells().iter() {
+    for spell in get_all_tome_spells().iter() {
         if spell.recipe == *recipe {
             return Some(spell.clone());
         }
@@ -617,7 +620,7 @@ impl Game for WitchesBrewGame {
         counter_orders.get_mut(1).bonus = 1;
 
         /* Create tome spells */
-        let mut queued_spells = get_tome_spells();
+        let mut queued_spells = get_learnable_tome_spells();
         queued_spells.shuffle(&mut thread_rng());
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
@@ -1149,7 +1152,7 @@ mod tests {
 
     #[test]
     fn test_get_tome_spell() {
-        let tome_spells = get_tome_spells();
+        let tome_spells = get_learnable_tome_spells();
         assert_eq!(tome_spells.len(), 42);
 
         assert_eq!(tome_spells[2].repeatable, false);
@@ -1217,7 +1220,7 @@ mod tests {
 
     #[test]
     fn test_can_cast_spell() {
-        let tome_spells = get_tome_spells();
+        let tome_spells = get_learnable_tome_spells();
 
         // Test remove one ingredient
         let spell = &tome_spells[7]; //[3, 0, 1, -1]
@@ -1250,7 +1253,7 @@ mod tests {
 
     #[test]
     fn test_how_many_times_can_cast_spell() {
-        let tome_spells = get_tome_spells();
+        let tome_spells = get_learnable_tome_spells();
         let basic_spells = get_basic_spells();
 
         /* Spell that just adds a single ingredient without removing another */
@@ -1339,7 +1342,7 @@ mod tests {
 
     #[test]
     fn test_get_spell_position() {
-        let mut spells = get_tome_spells();
+        let mut spells = get_learnable_tome_spells();
         assert_eq!(get_spell_position(&spells[0..6], 2), Some(2));
         assert_eq!(get_spell_position(&spells[0..6], 5), Some(5));
 
@@ -1352,7 +1355,7 @@ mod tests {
 
     #[test]
     fn test_cast_and_update_stock() {
-        let tome_spells = get_tome_spells();
+        let tome_spells = get_learnable_tome_spells();
         let basic_spells = get_basic_spells();
 
         let spell = &tome_spells[14]; //[0, 0, 0, 1]
@@ -2167,7 +2170,7 @@ mod tests {
 
     #[test]
     fn test_update_tome_spells_no_spells_left() {
-        let mut queued_spells = get_tome_spells();
+        let mut queued_spells = get_learnable_tome_spells();
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
         let mut tome_spells_ids: [u32; 6] = [0; 6];
@@ -2195,7 +2198,7 @@ mod tests {
 
     #[test]
     fn test_update_tome_spells_no_spell_to_place_tax() {
-        let mut queued_spells = get_tome_spells();
+        let mut queued_spells = get_learnable_tome_spells();
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
         let mut tome_spells_ids: [u32; 6] = [0; 6];
