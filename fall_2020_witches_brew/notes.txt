@@ -1,0 +1,16 @@
+There is 1001 possible stock states : [[0-10], [0-10], [0-10], [0-10]]
+
+There is 36 possible Orders & 46 possible Spells (42 Tome spells + 4 basic spells) in the whole game
+
+The max # of valid CAST spells in a single turn is 35
+  It occurs when stock = [0, 0, 4, 2] & player has learnt all 46 spells
+  The corresponding CAST moves are : [CAST(2, 1), CAST(3, 1), CAST(4, 1), CAST(5, 1), CAST(6, 1), CAST(6, 2), CAST(7, 1), CAST(10, 1), CAST(12, 1), CAST(13, 1), CAST(14, 1), CAST(15, 1), CAST(16, 1), CAST(19, 1), CAST(19, 2), CAST(19, 3), CAST(19, 4), CAST(22, 1), CAST(22, 2), CAST(24, 1), CAST(24, 2), CAST(26, 1), CAST(26, 2), CAST(27, 1), CAST(27, 2), CAST(28, 1), CAST(31, 1), CAST(32, 1), CAST(35, 1), CAST(39, 1), CAST(39, 2), CAST(41, 1), CAST(41, 2), CAST(42, 1), CAST(45, 1)]
+
+The max # of valid moves in a single turn is 47 (35 max valid CAST moves + 5 BREW order moves + 6 LEARN moves + 1 REST move)
+
+There is 115 possible CAST moves in the whole game : 
+  [CAST(0, 1), CAST(0, 2), CAST(0, 3), CAST(1, 1), CAST(1, 2), CAST(1, 3), CAST(2, 1), CAST(3, 1), CAST(4, 1), CAST(5, 1), CAST(5, 2), CAST(6, 1), CAST(6, 2), CAST(7, 1), CAST(7, 2), CAST(8, 1), CAST(8, 2), CAST(9, 1), CAST(9, 2), CAST(10, 1), CAST(10, 2), CAST(11, 1), CAST(11, 2), CAST(12, 1), CAST(13, 1), CAST(14, 1), CAST(15, 1), CAST(16, 1), CAST(17, 1), CAST(17, 2), CAST(17, 3), CAST(17, 4), CAST(17, 5), CAST(18, 1), CAST(18, 2), CAST(18, 3), CAST(18, 4), CAST(18, 5), CAST(19, 1), CAST(19, 2), CAST(19, 3), CAST(19, 4), CAST(19, 5), CAST(20, 1), CAST(20, 2), CAST(20, 3), CAST(21, 1), CAST(21, 2), CAST(21, 3), CAST(22, 1), CAST(22, 2), CAST(22, 3), CAST(23, 1), CAST(23, 2), CAST(23, 3), CAST(24, 1), CAST(24, 2), CAST(24, 3), CAST(25, 1), CAST(25, 2), CAST(25, 3), CAST(26, 1), CAST(26, 2), CAST(26, 3), CAST(27, 1), CAST(27, 2), CAST(27, 3), CAST(28, 1), CAST(28, 2), CAST(29, 1), CAST(29, 2), CAST(30, 1), CAST(30, 2), CAST(31, 1), CAST(31, 2), CAST(32, 1), CAST(32, 2), CAST(33, 1), CAST(33, 2), CAST(34, 1), CAST(34, 2), CAST(34, 3), CAST(35, 1), CAST(35, 2), CAST(35, 3), CAST(36, 1), CAST(36, 2), CAST(36, 3), CAST(37, 1), CAST(37, 2), CAST(37, 3), CAST(38, 1), CAST(38, 2), CAST(38, 3), CAST(38, 4), CAST(38, 5), CAST(39, 1), CAST(39, 2), CAST(39, 3), CAST(39, 4), CAST(39, 5), CAST(40, 1), CAST(40, 2), CAST(40, 3), CAST(40, 4), CAST(40, 5), CAST(41, 1), CAST(41, 2), CAST(41, 3), CAST(41, 4), CAST(41, 5), CAST(42, 1), CAST(43, 1), CAST(44, 1), CAST(45, 1)]
+
+Out of 1001 possible stock states
+  There's 86 stock states that cannot fullfill any order
+  There 1 stock state that doesn't allow any spell cast : [0, 0, 0, 10]

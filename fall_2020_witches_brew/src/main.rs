@@ -10,7 +10,7 @@ use std::time::Instant;
 
 fn main() {
     const STATS: bool = true;
-    const RECORD: bool = false;
+    const RECORD: bool = true;
     const RUN_PERMUT: bool = false;
     const RUNS: u32 = 10;
 
@@ -18,11 +18,11 @@ fn main() {
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_mcts_1::play,
+            func: &player_random::play,
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_random_brewer::play,
+            func: &player_mcts_1::play,
             params: None,
         },
     ];

@@ -12,7 +12,8 @@ macro_rules! parse_input {
 }
 
 const MAX_VALID_MOVES: usize = 35 + 5 + 6 + 1; // 35 CAST + 5 BREW + 6 LEARN + 1 REST
-const MAX_PLAYER_SPELLS: usize = 42 + 4;
+const EXISTING_SPELL_COUNT: usize = 42 + 4;
+const EXISTING_ORDER_COUNT: usize = 36;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Move {
@@ -91,7 +92,8 @@ struct Spell {
 struct Player {
     move_: Move,
     stock: Stock,
-    spells: StackVector<Spell, MAX_PLAYER_SPELLS>,
+    stock_id: usize,
+    spells: StackVector<Spell, EXISTING_SPELL_COUNT>,
     rupees: u32,
     brewed_potions_count: u8,
 }
@@ -113,8 +115,98 @@ pub struct WitchesBrewGame {
     active_player: u8,
     turn: u8,
     winners: Option<(WinLossTie, WinLossTie)>,
+
+    //Cache
+    cache: Cache,
 }
 
+/* #region(collapsed) [Cache] */
+
+#[allow(non_snake_case)]
+struct Cache {
+    map_stockArr4_stockId: Vec<Vec<Vec<Vec<usize>>>>,
+    map_stockId_timesCanCastSpell: Vec<Vec<u8>>,
+    map_stockId_canFullfillOrder: Vec<Vec<bool>>,
+}
+
+#[allow(non_snake_case)]
+impl Cache {
+    fn new() -> Self {
+        let (map_stockArr4_stockId, map_stockId_timesCanCastSpell, map_stockId_canFullfillOrder) =
+            Cache::init_map_stocks();
+
+        Cache {
+            map_stockArr4_stockId,
+            map_stockId_timesCanCastSpell,
+            map_stockId_canFullfillOrder,
+        }
+    }
+
+    fn init_map_stocks() -> (Vec<Vec<Vec<Vec<usize>>>>, Vec<Vec<u8>>, Vec<Vec<bool>>) {
+        let mut map_stockArr4_stockId: Vec<Vec<Vec<Vec<usize>>>> =
+            vec![vec![vec![vec![0; 11]; 11]; 11]; 11];
+
+        let mut map_stockId_timesCanCastSpell: Vec<Vec<u8>> =
+            vec![vec![0; EXISTING_SPELL_COUNT]; 1001];
+
+        let mut map_stockId_canFullfillOrder: Vec<Vec<bool>> =
+            vec![vec![false; EXISTING_ORDER_COUNT]; 1001];
+
+        let all_spells = get_all_tome_spells();
+        let all_orders = get_all_orders();
+
+        let mut id = 0;
+        for t0 in 0..=10 {
+            for t1 in 0..=(10 - t0) {
+                for t2 in 0..=(10 - t0 - t1) {
+                    for t3 in 0..=(10 - t0 - t1 - t2) {
+                        map_stockArr4_stockId[t0][t1][t2][t3] = id;
+
+                        for spell in all_spells.iter() {
+                            map_stockId_timesCanCastSpell[id][spell.id as usize] =
+                                how_many_times_can_cast_spell(
+                                    &spell,
+                                    &[t0 as i8, t1 as i8, t2 as i8, t3 as i8],
+                                );
+                        }
+
+                        for order in all_orders.iter() {
+                            map_stockId_canFullfillOrder[id][order.id as usize] = can_fulfill_order(
+                                &order,
+                                &[t0 as i8, t1 as i8, t2 as i8, t3 as i8],
+                            );
+                        }
+
+                        id += 1;
+                    }
+                }
+            }
+        }
+
+        (
+            map_stockArr4_stockId,
+            map_stockId_timesCanCastSpell,
+            map_stockId_canFullfillOrder,
+        )
+    }
+
+    fn getStockId(&self, stockArr: &Stock) -> usize {
+        self.map_stockArr4_stockId[stockArr[0] as usize][stockArr[1] as usize][stockArr[2] as usize]
+            [stockArr[3] as usize]
+    }
+
+    fn how_many_times_can_cast_spell(&self, spell_id: u32, stock_id: usize) -> u8 {
+        self.map_stockId_timesCanCastSpell[stock_id][spell_id as usize]
+    }
+
+    fn can_fulfill_order(&self, order_id: u32, stock_id: usize) -> bool {
+        self.map_stockId_canFullfillOrder[stock_id][order_id as usize]
+    }
+}
+
+/* #endregion */
+
+/* #region(collapsed) [Helper method] */
 fn get_learnable_tome_spells() -> Vec<Spell> {
     let spells: Vec<Recipe> = vec![
         [-3, 0, 0, 1],
@@ -302,10 +394,6 @@ fn can_fulfill_order(order: &Order, stock: &Stock) -> bool {
 }
 
 fn can_cast_spell(spell: &Spell, stock: &Stock) -> bool {
-    if spell.active == false {
-        return false;
-    }
-
     let empty_slots = 10 - stock[0] - stock[1] - stock[2] - stock[3];
 
     if spell.delta_stock > empty_slots {
@@ -321,10 +409,6 @@ fn can_cast_spell(spell: &Spell, stock: &Stock) -> bool {
 
 /* Return how many times the spell can be cast */
 fn how_many_times_can_cast_spell(spell: &Spell, stock: &Stock) -> u8 {
-    if spell.active == false {
-        return 0;
-    }
-
     if spell.repeatable == false {
         match can_cast_spell(spell, stock) {
             true => 1,
@@ -369,9 +453,9 @@ fn cast_and_update_stock(stock: &mut Stock, recipe: &Recipe, times: u8) {
     }
 }
 
-fn brew_and_update_stock(stock: &mut Stock, order: &Order) {
+fn brew_and_update_stock(stock: &mut Stock, recipe: &Recipe) {
     for i in 0..4 {
-        stock[i] += order.recipe[i];
+        stock[i] += recipe[i];
     }
 }
 
@@ -513,7 +597,9 @@ fn valid_moves(
     orders: &[Order],
     tome_spells: &[Spell],
     player_spells: &[Spell],
-    stock: &Stock,
+    player_stock: &Stock,
+    player_stock_id: usize,
+    cache: &Cache,
 ) -> StackVector<Move, MAX_VALID_MOVES> {
     // There's at max 10 possible moves : 5 orders, 4 spells + REST
     let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector {
@@ -524,7 +610,7 @@ fn valid_moves(
     /* BREW moves */
     // Check which order the player can fulfill and add them as a valid move
     for order in orders.iter() {
-        if can_fulfill_order(order, stock) {
+        if cache.can_fulfill_order(order.id, player_stock_id) {
             valid_moves.add(Move::BREW(order.id));
         }
     }
@@ -537,7 +623,7 @@ fn valid_moves(
         if sp.active == false {
             all_spells_are_active = false;
         } else {
-            let times_can_cast_spell = how_many_times_can_cast_spell(sp, stock);
+            let times_can_cast_spell = cache.how_many_times_can_cast_spell(sp.id, player_stock_id);
             if times_can_cast_spell > 0 {
                 for n in 1..=times_can_cast_spell {
                     valid_moves.add(Move::CAST(sp.id, n));
@@ -553,7 +639,7 @@ fn valid_moves(
 
     /* LEARN moves */
     for (t, spell) in tome_spells.iter().enumerate() {
-        if t as u8 <= stock[0] as u8 {
+        if t as u8 <= player_stock[0] as u8 {
             valid_moves.add(Move::LEARN(spell.id));
         }
     }
@@ -567,7 +653,7 @@ fn valid_moves(
 }
 
 #[allow(dead_code)]
-fn new_init(
+fn new_game_with_params(
     players: [Player; 2],
     tome_spells: StackVector<Spell, 6>,
     counter_orders: StackVector<Order, 5>,
@@ -587,13 +673,20 @@ fn new_init(
         active_player: 0,
         turn,
         winners: None,
+
+        cache: Cache::new(),
     }
 }
 
+/* #endregion */
+
 impl Game for WitchesBrewGame {
     fn new() -> Self {
+        /* Init cache */
+        let cache = Cache::new();
+
         /* Create Player's basic spells */
-        let mut player_spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
+        let mut player_spells: StackVector<Spell, EXISTING_SPELL_COUNT> = StackVector::new();
         let basic_spells = get_basic_spells();
         for i in 0..4 {
             player_spells.add(basic_spells[i]);
@@ -603,6 +696,7 @@ impl Game for WitchesBrewGame {
         let player = Player {
             move_: Move::NONE,
             stock: [3, 0, 0, 0],
+            stock_id: cache.getStockId(&[3, 0, 0, 0]),
             rupees: 0,
             brewed_potions_count: 0,
             spells: player_spells,
@@ -643,6 +737,8 @@ impl Game for WitchesBrewGame {
             active_player: 0,
             turn: 0,
             winners: None,
+
+            cache,
         };
 
         game
@@ -790,12 +886,16 @@ impl Game for WitchesBrewGame {
                 &self.tome_spells.slice(),
                 &player0.spells.slice(),
                 &player0.stock,
+                player0.stock_id,
+                &self.cache,
             );
             let player1_valid_moves = valid_moves(
                 &self.counter_orders.slice(),
                 &self.tome_spells.slice(),
                 &player1.spells.slice(),
                 &player1.stock,
+                player1.stock_id,
+                &&self.cache,
             );
 
             let is_move0_valid = player0_valid_moves.slice().contains(&player0.move_);
@@ -852,7 +952,8 @@ impl Game for WitchesBrewGame {
                             fullfilled_order.price as u32 + fullfilled_order.bonus as u32;
 
                         // Update the player's ingredient stock
-                        brew_and_update_stock(&mut player.stock, &fullfilled_order);
+                        brew_and_update_stock(&mut player.stock, &fullfilled_order.recipe);
+                        player.stock_id = self.cache.getStockId(&player.stock);
 
                         // Save fullfilled orders so that I remove them later
                         orders_were_fullfilled = true;
@@ -866,6 +967,7 @@ impl Game for WitchesBrewGame {
 
                         // Update the player's ingredient stock
                         cast_and_update_stock(&mut player.stock, &cast_spell.recipe, times);
+                        player.stock_id = self.cache.getStockId(&player.stock);
 
                         // Spell is now exhausted
                         cast_spell.active = false;
@@ -892,6 +994,8 @@ impl Game for WitchesBrewGame {
                                 - player.stock[3];
                             player.stock[0] += cmp::min(learnt_spell.tax as i8, empty_storage);
                         }
+                        player.stock_id = self.cache.getStockId(&player.stock);
+
                         // Save learnt spells, so that I replace them later and deal with the tax
                         spells_were_learnt = true;
                         spells_to_remove_pos[pid] = Some(learnt_spell_pos);
@@ -1081,6 +1185,10 @@ impl Game for WitchesBrewGame {
             }
 
             state.insert(format!("player[{}]: Stock", pid), fmt_stock(&player.stock));
+            state.insert(
+                format!("player[{}]: Stock Id", pid),
+                player.stock_id.to_string(),
+            );
 
             state.insert(
                 format!("player[{}]: Rupees", pid),
@@ -1108,6 +1216,8 @@ impl Game for WitchesBrewGame {
                 &self.tome_spells.slice(),
                 &player.spells.slice(),
                 &player.stock,
+                player.stock_id,
+                &self.cache,
             );
             state.insert(
                 format!("player[{}]: Valid moves", pid),
@@ -1219,6 +1329,31 @@ mod tests {
     }
 
     #[test]
+    fn test_can_fulfill_order_cache() {
+        let cache = Cache::new();
+        let orders = get_all_orders();
+
+        let stock_id = cache.getStockId(&[3, 2, 1, 0]);
+
+        // order[0] = [2, 2, 0, 0]
+        assert_eq!(cache.can_fulfill_order(orders[0].id, stock_id), true);
+        // order[2] = [0, 4, 0, 0]
+        assert_eq!(cache.can_fulfill_order(orders[2].id, stock_id), false);
+
+        let stock_id = cache.getStockId(&[2, 2, 2, 0]);
+        //order[27] = [2, 2, 2, 0]
+        assert_eq!(cache.can_fulfill_order(orders[27].id, stock_id), true);
+        //order[26] = [1, 0, 2, 1]
+        assert_eq!(cache.can_fulfill_order(orders[26].id, stock_id), false);
+
+        let stock_id = cache.getStockId(&[0, 10, 0, 0]);
+        //order[7] = [0, 5, 0, 0]
+        assert_eq!(cache.can_fulfill_order(orders[7].id, stock_id), true);
+        //order[4] = [2, 3, 0, 0]
+        assert_eq!(cache.can_fulfill_order(orders[4].id, stock_id), false);
+    }
+
+    #[test]
     fn test_can_cast_spell() {
         let tome_spells = get_learnable_tome_spells();
 
@@ -1237,11 +1372,6 @@ mod tests {
         assert_eq!(can_cast_spell(spell, &[0, 3, 1, 1]), false);
         assert_eq!(can_cast_spell(spell, &[2, 0, 1, 1]), false);
         assert_eq!(can_cast_spell(spell, &[0, 0, 5, 5]), false);
-
-        // Test inactive spell
-        let mut spell = tome_spells[7].clone(); //[3, 0, 1, -1]
-        spell.active = false;
-        assert_eq!(can_cast_spell(&spell, &[0, 0, 0, 1]), false);
 
         // Test no more space
         let spell = &tome_spells[7]; //[3, 0, 1, -1]
@@ -1318,12 +1448,111 @@ mod tests {
         assert_eq!(how_many_times_can_cast_spell(spell, &[10, 0, 0, 0]), 2);
         assert_eq!(how_many_times_can_cast_spell(spell, &[8, 1, 1, 0]), 2);
         assert_eq!(how_many_times_can_cast_spell(spell, &[3, 0, 0, 0]), 0);
+    }
 
-        /* Test inactive spell */
-        let mut spell = tome_spells[18].clone(); //[-1, -1, 0, 1]
-        assert_eq!(how_many_times_can_cast_spell(&spell, &[2, 2, 0, 0]), 2);
-        spell.active = false;
-        assert_eq!(how_many_times_can_cast_spell(&spell, &[2, 2, 0, 0]), 0);
+    #[test]
+    fn test_how_many_times_can_cast_spell_cache() {
+        let cache = Cache::new();
+
+        let tome_spells = get_learnable_tome_spells();
+        let basic_spells = get_basic_spells();
+
+        /* Spell that just adds a single ingredient without removing another */
+        let spell = tome_spells[14]; //[0, 0, 0, 1]
+                                     // Spell is not repeatable
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[0, 0, 0, 0])),
+            1
+        );
+
+        /* Spell that  adds 2 ingredients without removing another */
+        let spell = tome_spells[2]; //[1, 1, 0, 0]
+                                    // Spell is not repeatable
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[0, 0, 0, 0])),
+            1
+        );
+
+        /* Spell that adds 1 ingredient and remove 1 ingredient */
+        let spell = basic_spells[1]; //[-1, 1, 0, 0]
+                                     // Spell is not repeatable because it's a basic spell
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[5, 0, 0, 0])),
+            1
+        );
+
+        /* Spell that removes 1 ingredients and add 2 others */
+        let spell = tome_spells[9]; //[2, -3, 2, 0]
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[0, 3, 0, 0])),
+            1
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[0, 5, 0, 0])),
+            1
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[0, 6, 0, 0])),
+            2
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[0, 8, 0, 0])),
+            2
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[0, 9, 0, 0])),
+            1
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[1, 6, 2, 1])),
+            0
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[1, 6, 1, 1])),
+            1
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[2, 3, 2, 2])),
+            1
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[2, 3, 2, 3])),
+            0
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[1, 4, 1, 0])),
+            1
+        );
+
+        /* Another test */
+        let spell = tome_spells[11]; //[-4, 0, 2, 0]
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[4, 0, 0, 0])),
+            1
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[7, 0, 0, 0])),
+            1
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[10, 0, 0, 0])),
+            2
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[8, 1, 1, 0])),
+            2
+        );
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[3, 0, 0, 0])),
+            0
+        );
+
+        /*Another test */
+        let spell = tome_spells[17]; //[-2, 0, 1, 0]
+        assert_eq!(
+            cache.how_many_times_can_cast_spell(spell.id, cache.getStockId(&[10, 0, 0, 0])),
+            5
+        );
     }
 
     #[test]
@@ -1399,24 +1628,27 @@ mod tests {
 
         let order = orders[0]; //[2, 2, 0, 0]
         let mut stock = [3, 2, 1, 0];
-        brew_and_update_stock(&mut stock, &order);
+        brew_and_update_stock(&mut stock, &order.recipe);
         assert_eq!(stock, [1, 0, 1, 0]);
 
         let order = orders[27]; //[2, 2, 2, 0]
         let mut stock = [2, 2, 2, 0];
-        brew_and_update_stock(&mut stock, &order);
+        brew_and_update_stock(&mut stock, &order.recipe);
         assert_eq!(stock, [0, 0, 0, 0]);
 
         let order = orders[7]; //[0, 5, 0, 0]
         let mut stock = [0, 10, 0, 0];
-        brew_and_update_stock(&mut stock, &order);
+        brew_and_update_stock(&mut stock, &order.recipe);
         assert_eq!(stock, [0, 5, 0, 0]);
     }
 
     #[test]
     fn test_valid_moves() {
+        let cache = Cache::new();
+
         /* Round 1 */
         let player_stock = [3, 0, 0, 0];
+        let player_stock_id = cache.getStockId(&player_stock);
         let player_spells = [
             find_spell(&[2, 0, 0, 0]).unwrap(),
             find_spell(&[-1, 1, 0, 0]).unwrap(),
@@ -1439,7 +1671,14 @@ mod tests {
             find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(
+            &orders,
+            &tome,
+            &player_spells,
+            &player_stock,
+            player_stock_id,
+            &cache,
+        );
         let expected_moves = [
             Move::CAST(player_spells[0].id, 1),
             Move::CAST(player_spells[1].id, 1),
@@ -1453,6 +1692,7 @@ mod tests {
 
         /* Round 5 */
         let player_stock = [0, 1, 0, 1];
+        let player_stock_id = cache.getStockId(&player_stock);
         let mut player_spells = [
             find_spell(&[2, 0, 0, 0]).unwrap(),
             find_spell(&[-1, 1, 0, 0]).unwrap(),
@@ -1481,7 +1721,14 @@ mod tests {
             find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(
+            &orders,
+            &tome,
+            &player_spells,
+            &player_stock,
+            player_stock_id,
+            &cache,
+        );
         let expected_moves = [
             Move::CAST(player_spells[2].id, 1),
             Move::LEARN(tome[0].id),
@@ -1491,6 +1738,7 @@ mod tests {
 
         /* Round 13 */
         let player_stock = [2, 1, 1, 2];
+        let player_stock_id = cache.getStockId(&player_stock);
         let mut player_spells = [
             find_spell(&[2, 0, 0, 0]).unwrap(),
             find_spell(&[-1, 1, 0, 0]).unwrap(),
@@ -1521,7 +1769,14 @@ mod tests {
             find_order(&[-3, -1, -1, -1]).unwrap(),
         ];
 
-        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(
+            &orders,
+            &tome,
+            &player_spells,
+            &player_stock,
+            player_stock_id,
+            &cache,
+        );
         let expected_moves = [
             Move::LEARN(tome[0].id),
             Move::LEARN(tome[1].id),
@@ -1533,6 +1788,7 @@ mod tests {
 
         /* Round 17 */
         let player_stock = [0, 3, 1, 0];
+        let player_stock_id = cache.getStockId(&player_stock);
         let player_spells = [
             find_spell(&[2, 0, 0, 0]).unwrap(),
             find_spell(&[-1, 1, 0, 0]).unwrap(),
@@ -1562,7 +1818,14 @@ mod tests {
             find_order(&[0, 0, 0, -4]).unwrap(),
         ];
 
-        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(
+            &orders,
+            &tome,
+            &player_spells,
+            &player_stock,
+            player_stock_id,
+            &cache,
+        );
         let expected_moves = [
             Move::CAST(player_spells[0].id, 1),
             Move::CAST(player_spells[2].id, 1),
@@ -1575,8 +1838,12 @@ mod tests {
 
     #[test]
     fn test_valid_moves_multicast() {
+        let cache = Cache::new();
+
         /* Test that when I can cast a spell multiple times, there's a CAST action for each 1..n*/
         let player_stock = [0, 0, 1, 2];
+        let player_stock_id = cache.getStockId(&player_stock);
+
         let mut player_spells = [
             find_spell(&[2, 0, 0, 0]).unwrap(),
             find_spell(&[-1, 1, 0, 0]).unwrap(),
@@ -1608,7 +1875,14 @@ mod tests {
             find_order(&[-3, 0, -2, 0]).unwrap(),
         ];
 
-        let vm = valid_moves(&orders, &tome, &player_spells, &player_stock);
+        let vm = valid_moves(
+            &orders,
+            &tome,
+            &player_spells,
+            &player_stock,
+            player_stock_id,
+            &cache,
+        );
 
         let expected_moves = [
             Move::CAST(player_spells[6].id, 1),
@@ -1621,12 +1895,15 @@ mod tests {
 
     #[test]
     fn test_2_players_get_the_same_tax_reward() {
+        let cache = Cache::new();
+
         /* When 2 players learn the same spell, and the spell has a tax reward, they both get the same reward */
         let player = Player {
             move_: Move::NONE,
             stock: [0, 0, 0, 0],
+            stock_id: cache.getStockId(&[0, 0, 0, 0]),
             spells: {
-                let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
+                let mut spells: StackVector<Spell, EXISTING_SPELL_COUNT> = StackVector::new();
                 let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
@@ -1656,13 +1933,15 @@ mod tests {
         counter_orders.add(find_order(&[0, -5, 0, 0]).unwrap());
         counter_orders.add(find_order(&[0, 0, -3, -2]).unwrap());
 
-        let mut game = new_init(players, tome_spells, counter_orders, 3, 3, 0);
+        let mut game = new_game_with_params(players, tome_spells, counter_orders, 3, 3, 0);
 
         game.play(format!("LEARN {}", learned_spell_id));
         game.play(format!("LEARN {}", learned_spell_id));
 
         assert_eq!(game.players[0].stock, [3, 0, 0, 0]);
+        assert_eq!(game.players[0].stock_id, cache.getStockId(&[3, 0, 0, 0]));
         assert_eq!(game.players[1].stock, [3, 0, 0, 0]);
+        assert_eq!(game.players[1].stock_id, cache.getStockId(&[3, 0, 0, 0]));
         assert_eq!(game.players[0].spells.len(), 5);
         assert_eq!(game.players[1].spells.len(), 5);
         assert_eq!(game.tome_spells.len(), 5);
@@ -1670,12 +1949,15 @@ mod tests {
 
     #[test]
     fn test_tax_reward_cap() {
+        let cache = Cache::new();
+
         /* When a players learn the same spell, that has a tax reward, and he has no place in stock for the reward, he doesn't get the full reward */
         let player0 = Player {
             move_: Move::NONE,
             stock: [0, 3, 3, 3],
+            stock_id: cache.getStockId(&[0, 3, 3, 3]),
             spells: {
-                let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
+                let mut spells: StackVector<Spell, EXISTING_SPELL_COUNT> = StackVector::new();
                 let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
@@ -1689,8 +1971,9 @@ mod tests {
         let player1 = Player {
             move_: Move::NONE,
             stock: [3, 3, 3, 1],
+            stock_id: cache.getStockId(&[3, 3, 3, 1]),
             spells: {
-                let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
+                let mut spells: StackVector<Spell, EXISTING_SPELL_COUNT> = StackVector::new();
                 let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
@@ -1720,25 +2003,30 @@ mod tests {
         counter_orders.add(find_order(&[0, -5, 0, 0]).unwrap());
         counter_orders.add(find_order(&[0, 0, -3, -2]).unwrap());
 
-        let mut game = new_init(players, tome_spells, counter_orders, 3, 3, 0);
+        let mut game = new_game_with_params(players, tome_spells, counter_orders, 3, 3, 0);
 
         game.play(format!("LEARN {}", learned_spell_id));
         game.play(format!("LEARN {}", learned_spell_id));
 
         assert_eq!(game.players[0].stock, [1, 3, 3, 3]);
+        assert_eq!(game.players[0].stock_id, cache.getStockId(&[1, 3, 3, 3]));
         assert_eq!(game.players[1].stock, [3, 3, 3, 1]);
+        assert_eq!(game.players[1].stock_id, cache.getStockId(&[3, 3, 3, 1]));
         assert_eq!(game.players[0].spells.len(), 5);
         assert_eq!(game.players[1].spells.len(), 5);
     }
 
     #[test]
     fn test_2_players_fullfill_same_order() {
+        let cache = Cache::new();
+
         /* When 2 players fullfill the same order, they both get the same rupees and the bonus count is updated*/
         let player = Player {
             move_: Move::NONE,
             stock: [3, 1, 1, 1],
+            stock_id: cache.getStockId(&[3, 1, 1, 1]),
             spells: {
-                let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
+                let mut spells: StackVector<Spell, EXISTING_SPELL_COUNT> = StackVector::new();
                 let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
@@ -1769,13 +2057,15 @@ mod tests {
         let earned_rupees = counter_orders.get(0).price;
         let fullfilled_order_id = counter_orders.get(0).id;
 
-        let mut game = new_init(players, tome_spells, counter_orders, 4, 4, 0);
+        let mut game = new_game_with_params(players, tome_spells, counter_orders, 4, 4, 0);
 
         game.play(format!("BREW {}", fullfilled_order_id));
         game.play(format!("BREW {}", fullfilled_order_id));
 
         assert_eq!(game.players[0].stock, [0, 0, 0, 0]);
+        assert_eq!(game.players[0].stock_id, cache.getStockId(&[0, 0, 0, 0]));
         assert_eq!(game.players[1].stock, [0, 0, 0, 0]);
+        assert_eq!(game.players[1].stock_id, cache.getStockId(&[0, 0, 0, 0]));
         assert_eq!(game.counter_orders.len(), 4);
         assert_eq!(game.players[0].rupees, earned_rupees as u32 + 3);
         assert_eq!(game.players[1].rupees, earned_rupees as u32 + 3);
@@ -1785,12 +2075,15 @@ mod tests {
 
     #[test]
     fn test_no_plus3_bonus_left() {
+        let cache = Cache::new();
+
         /* When there no +3 bonus left, the first order gets a +1 bonus*/
         let player = Player {
             move_: Move::NONE,
             stock: [3, 1, 1, 1],
+            stock_id: cache.getStockId(&[3, 1, 1, 1]),
             spells: {
-                let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
+                let mut spells: StackVector<Spell, EXISTING_SPELL_COUNT> = StackVector::new();
                 let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
@@ -1821,13 +2114,15 @@ mod tests {
         let earned_rupees = counter_orders.get(0).price;
         let fullfilled_order_id = counter_orders.get(0).id;
 
-        let mut game = new_init(players, tome_spells, counter_orders, 2, 4, 0);
+        let mut game = new_game_with_params(players, tome_spells, counter_orders, 2, 4, 0);
 
         game.play(format!("BREW {}", fullfilled_order_id));
         game.play(format!("BREW {}", fullfilled_order_id));
 
         assert_eq!(game.players[0].stock, [0, 0, 0, 0]);
+        assert_eq!(game.players[0].stock_id, cache.getStockId(&[0, 0, 0, 0]));
         assert_eq!(game.players[1].stock, [0, 0, 0, 0]);
+        assert_eq!(game.players[1].stock_id, cache.getStockId(&[0, 0, 0, 0]));
         assert_eq!(game.counter_orders.len(), 4);
         assert_eq!(game.players[0].rupees, earned_rupees as u32 + 3);
         assert_eq!(game.players[1].rupees, earned_rupees as u32 + 3);
@@ -1839,12 +2134,15 @@ mod tests {
 
     #[test]
     fn test_no_bonus_left() {
+        let cache = Cache::new();
+
         /* When there no +3 bonus left, the first order gets a +1 bonus*/
         let player = Player {
             move_: Move::NONE,
             stock: [3, 1, 5, 1],
+            stock_id: cache.getStockId(&[3, 1, 5, 1]),
             spells: {
-                let mut spells: StackVector<Spell, MAX_PLAYER_SPELLS> = StackVector::new();
+                let mut spells: StackVector<Spell, EXISTING_SPELL_COUNT> = StackVector::new();
                 let basic_spells = get_basic_spells();
                 for i in 0..4 {
                     spells.add(basic_spells[i]);
@@ -1877,13 +2175,15 @@ mod tests {
         let fullfilled_order0_id = counter_orders.get(0).id;
         let fullfilled_order1_id = counter_orders.get(1).id;
 
-        let mut game = new_init(players, tome_spells, counter_orders, 1, 1, 0);
+        let mut game = new_game_with_params(players, tome_spells, counter_orders, 1, 1, 0);
 
         game.play(format!("BREW {}", fullfilled_order0_id));
         game.play(format!("BREW {}", fullfilled_order1_id));
 
         assert_eq!(game.players[0].stock, [0, 0, 4, 0]);
+        assert_eq!(game.players[0].stock_id, cache.getStockId(&[0, 0, 4, 0]));
         assert_eq!(game.players[1].stock, [3, 1, 0, 1]);
+        assert_eq!(game.players[1].stock_id, cache.getStockId(&[3, 1, 0, 1]));
         assert_eq!(game.counter_orders.len(), 3);
         assert_eq!(game.players[0].rupees, earned_rupees0 as u32 + 3);
         assert_eq!(game.players[1].rupees, earned_rupees1 as u32 + 1);
