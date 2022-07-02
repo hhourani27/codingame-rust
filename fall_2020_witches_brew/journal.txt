@@ -1,5 +1,16 @@
-Player 1 
-  First version of  MCTS
-  on 1st turn, I was expanding 3307 nodes and running 1992 simulations (on local)
-  on 1st turn, I was expanding 2396 nodes and running 1517 simulations (on codingame)
-  Rank : Silver league 474th
+Player 1
+  Strategy
+    First version of  MCTS
+  Result
+    on 1st turn, I was expanding 3307 nodes and running 1992 simulations (on local)
+    on 1st turn, I was expanding 2396 nodes and running 1517 simulations (on codingame)
+    Rank : Silver league 474th
+
+Player 2
+  Strategy
+    Use cache to more rapidly calculate the valid spells & orders for a stock
+    Stop simulation when the score difference between 2 players is > 20
+  Result
+    on 1st turn, I was expanding 4932 nodes and running 3153 simulations (on local)
+    on 1st turn, I was expanding 5424 nodes and running 3318 simulations (on codingame)
+    Rank: Silver league 284th
