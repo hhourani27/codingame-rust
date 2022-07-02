@@ -364,10 +364,7 @@ mod game {
         let player_stock = &player.stock;
         let player_stock_id = player.stock_id;
 
-        let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector {
-            arr: [Move::NONE; MAX_VALID_MOVES],
-            len: 0,
-        };
+        let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector::new();
 
         /* BREW moves */
         // Check which order the player can fulfill and add them as a valid move
@@ -401,9 +398,9 @@ mod game {
         }
 
         /* LEARN moves */
-        for (t, spell) in tome_spells.iter().enumerate() {
-            if t as u8 <= player_stock[0] as u8 {
-                valid_moves.add(Move::LEARN(spell.id));
+        if tome_spells.len() > 0 {
+            for t in 0..=cmp::min(player_stock[0] as usize, tome_spells.len() - 1) {
+                valid_moves.add(Move::LEARN(tome_spells[t].id));
             }
         }
 
@@ -930,7 +927,7 @@ mod mcts {
     use std::time::Instant;
 
     const MAX_NODE_COUNT: usize = 300_000;
-    const TIME_LIMIT_MS: u128 = 50;
+    const TIME_LIMIT_MS: u128 = 1000;
 
     #[derive(Clone, Copy)]
     struct Node {
