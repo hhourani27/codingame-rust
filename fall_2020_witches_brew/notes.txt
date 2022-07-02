@@ -14,3 +14,8 @@ There is 115 possible CAST moves in the whole game :
 Out of 1001 possible stock states
   There's 86 stock states that cannot fullfill any order
   There 1 stock state that doesn't allow any spell cast : [0, 0, 0, 10]
+
+=================
+Post-mortems
+  https://github.com/pb4git/Fall-Challenge-2020
+  https://www.youtube.com/watch?v=tDxEINreXiI
