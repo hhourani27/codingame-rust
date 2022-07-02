@@ -23,7 +23,7 @@ fn main() {
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_random::play,
+            func: &player_mcts_2::play,
             params: None,
         },
     ];

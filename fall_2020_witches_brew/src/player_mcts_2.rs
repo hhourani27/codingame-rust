@@ -1182,6 +1182,16 @@ mod mcts {
             // Update visit count for the root node
             self.arr[0].visits += 1;
         }
+
+        pub fn get_first_nodes_simulation_results(&self) -> Vec<(game::Move, u32, f32)> {
+            let first_child_idx = self.arr[0].child_first.unwrap();
+            let child_count = self.arr[0].child_count;
+
+            self.arr[first_child_idx..first_child_idx + child_count as usize]
+                .iter()
+                .map(|&node| (node.move_.unwrap(), node.visits, node.score))
+                .collect::<Vec<(game::Move, u32, f32)>>()
+        }
     }
 }
 
@@ -1339,7 +1349,21 @@ pub fn play(
 
         /* #region [Extract player state] */
         let mut player_state: HashMap<String, String> = HashMap::new();
-        player_state.insert("Hello".to_string(), "World".to_string());
+        let mut first_nodes = mcts.get_first_nodes_simulation_results();
+
+        first_nodes.sort_by(|n1, n2| {
+            (n1.2 / n1.1 as f32)
+                .partial_cmp(&(n2.2 / n2.1 as f32))
+                .unwrap()
+        });
+        first_nodes.reverse();
+
+        for (i, (move_, visits, score)) in first_nodes.iter().enumerate() {
+            player_state.insert(
+                format!("({:02}) {}", i + 1, move_.to_string()),
+                format!("{:.2} {} {}", score / *visits as f32, *visits, *score),
+            );
+        }
 
         /* #endregion */
 
