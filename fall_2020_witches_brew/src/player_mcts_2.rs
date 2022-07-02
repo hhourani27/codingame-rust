@@ -927,7 +927,7 @@ mod mcts {
     use std::time::Instant;
 
     const MAX_NODE_COUNT: usize = 300_000;
-    const TIME_LIMIT_MS: u128 = 1000;
+    const TIME_LIMIT_MS: u128 = 50;
 
     #[derive(Clone, Copy)]
     struct Node {
