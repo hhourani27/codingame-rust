@@ -606,10 +606,7 @@ fn valid_moves(
     cache: &Cache,
 ) -> StackVector<Move, MAX_VALID_MOVES> {
     // There's at max 10 possible moves : 5 orders, 4 spells + REST
-    let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector {
-        arr: [Move::NONE; MAX_VALID_MOVES],
-        len: 0,
-    };
+    let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector::new();
 
     /* BREW moves */
     // Check which order the player can fulfill and add them as a valid move
@@ -642,10 +639,9 @@ fn valid_moves(
     }
 
     /* LEARN moves */
-    // TODO: optimize this
-    for (t, spell) in tome_spells.iter().enumerate() {
-        if t as u8 <= player_stock[0] as u8 {
-            valid_moves.add(Move::LEARN(spell.id));
+    if tome_spells.len() > 0 {
+        for t in 0..=cmp::min(player_stock[0] as usize, tome_spells.len() - 1) {
+            valid_moves.add(Move::LEARN(tome_spells[t].id));
         }
     }
 
@@ -1842,6 +1838,47 @@ mod tests {
     }
 
     #[test]
+    fn test_valid_moves_no_tome_spells() {
+        let cache = Cache::new();
+
+        let player_stock = [2, 1, 1, 2];
+        let player_stock_id = cache.getStockId(&player_stock);
+        let mut player_spells = [
+            find_spell(&[2, 0, 0, 0]).unwrap(),
+            find_spell(&[-1, 1, 0, 0]).unwrap(),
+            find_spell(&[0, -1, 1, 0]).unwrap(),
+            find_spell(&[0, 0, -1, 1]).unwrap(),
+            find_spell(&[0, -3, 0, 2]).unwrap(),
+            find_spell(&[-3, 1, 1, 0]).unwrap(),
+            find_spell(&[-5, 0, 0, 2]).unwrap(),
+        ];
+        player_spells[0].active = false;
+        player_spells[1].active = false;
+        player_spells[2].active = false;
+        player_spells[3].active = false;
+
+        let tome: [Spell; 0] = [];
+        let orders = [
+            find_order(&[-2, 0, 0, -2]).unwrap(),
+            find_order(&[0, 0, -2, -2]).unwrap(),
+            find_order(&[-1, -1, -1, -3]).unwrap(),
+            find_order(&[-2, 0, 0, -3]).unwrap(),
+            find_order(&[-3, -1, -1, -1]).unwrap(),
+        ];
+
+        let vm = valid_moves(
+            &orders,
+            &tome,
+            &player_spells,
+            &player_stock,
+            player_stock_id,
+            &cache,
+        );
+        let expected_moves = [Move::BREW(orders[0].id), Move::REST];
+        assert_vec_eq!(vm.slice(), &expected_moves);
+    }
+
+    #[test]
     fn test_valid_moves_multicast() {
         let cache = Cache::new();
 
@@ -2474,7 +2511,7 @@ mod tests {
     }
 
     #[test]
-    fn test_update_tome_spells_no_spells_left() {
+    fn test_update_tome_spells_learn_last_spells() {
         let mut queued_spells = get_learnable_tome_spells();
 
         let mut tome_spells: StackVector<Spell, 6> = StackVector::new();
