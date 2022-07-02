@@ -255,7 +255,7 @@ mod game {
 pub fn play(
     ctr_rcv: Receiver<bool>,
     msg_rcv: Receiver<String>,
-    msg_snd: Sender<String>,
+    msg_snd: Sender<(String, Option<std::collections::HashMap<String, String>>)>,
     params: Option<Vec<String>>,
 ) {
     // game loop
@@ -367,6 +367,6 @@ pub fn play(
         );*/
 
         // in the first league: BREW <id> | WAIT; later: BREW <id> | CAST <id> [<times>] | LEARN <id> | REST | WAIT
-        msg_snd.send(format!("{}", chosen_move.to_string()));
+        msg_snd.send((format!("{}", chosen_move.to_string()), None));
     }
 }

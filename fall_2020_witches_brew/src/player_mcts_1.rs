@@ -903,7 +903,7 @@ mod mcts {
 pub fn play(
     ctr_rcv: Receiver<bool>,
     msg_rcv: Receiver<String>,
-    msg_snd: Sender<String>,
+    msg_snd: Sender<(String, Option<std::collections::HashMap<String, String>>)>,
     params: Option<Vec<String>>,
 ) {
     /* State variables that have to be maintained as they are not sent by the game */
@@ -1061,6 +1061,6 @@ pub fn play(
         turn += 1;
 
         let msg = best_move.to_string();
-        msg_snd.send(format!("{}", msg));
+        msg_snd.send((format!("{}", msg), None));
     }
 }

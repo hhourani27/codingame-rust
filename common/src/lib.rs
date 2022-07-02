@@ -153,6 +153,7 @@ pub mod record {
         pub game_state: GameState,
         pub player: u32,
         pub player_input: Vec<String>,
+        pub player_state: HashMap<String, String>,
         pub player_move: String,
     }
 

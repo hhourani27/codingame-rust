@@ -31,7 +31,10 @@
     </div>
     <div id="messages">
       <div id="player-input">player-input</div>
+      <hr />
       <div id="player-output">player-output</div>
+      <hr />
+      <div id="player-state">player-state</div>
     </div>
   </div>
 
@@ -71,7 +74,7 @@
 
         // Print State & Board
         printState(turn["game_state"], document.getElementById("game-state"), record["board_representation"]);
-        printMessages(turn);
+        printPlayer(turn);
       }
       else if (turn_id == record['game_runs'][run_id]['turns'].length) {
         let final_state = record['game_runs'][run_id]["final_state"];
@@ -172,7 +175,7 @@
 
     }
 
-    function printMessages(turn) {
+    function printPlayer(turn) {
       // Print player input
       let div_player_input = document.getElementById("player-input");
       div_player_input.innerHTML = "";
@@ -200,6 +203,28 @@
       div_text = document.createElement("div");
       div_text.innerHTML = turn["player_move"];
       div_player_output.append(div_text);
+
+      // Print player state
+      let div_player_state = document.getElementById("player-state");
+      div_player_state.innerHTML = "";
+
+      div_text = document.createElement("div");
+      div_text.textContent = `Player ${turn["player"]}'s state`;
+      div_player_state.append(div_text);
+
+      let table = document.createElement("table");
+      div_player_state.append(table);
+
+      let state = turn["player_state"];
+      keys = Object.keys(state).sort()
+      for (const k of keys) {
+        tr = document.createElement("tr");
+        tr.innerHTML = `<td>${k}</td><td>${state[k]}</td>`
+        table.append(tr);
+      }
+
+
+
 
 
     }

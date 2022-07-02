@@ -1,6 +1,7 @@
 use crate::{record, WinLossTie};
 use crate::{Game, Message};
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Error;
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -22,8 +23,12 @@ impl RunStatistics {
 
 #[derive(Clone)]
 pub struct PlayerPlayFunction {
-    pub func: &'static (dyn Fn(Receiver<bool>, Receiver<String>, Sender<String>, Option<Vec<String>>)
-                  + Sync),
+    pub func: &'static (dyn Fn(
+        Receiver<bool>,
+        Receiver<String>,
+        Sender<(String, Option<HashMap<String, String>>)>,
+        Option<Vec<String>>,
+    ) + Sync),
     pub params: Option<Vec<String>>,
 }
 
@@ -40,7 +45,8 @@ fn run_single(
     // Vector of channels to send messages to the player
     let mut sp_message_senders: Vec<Sender<String>> = Vec::new();
     // Vector of channels to receive messages from the player
-    let mut ps_message_receivers: Vec<Receiver<String>> = Vec::new();
+    let mut ps_message_receivers: Vec<Receiver<(String, Option<HashMap<String, String>>)>> =
+        Vec::new();
     // Vector of channels to send control to the player (telling it to stop or continue)
     let mut sp_control_senders: Vec<Sender<bool>> = Vec::new();
 
@@ -100,7 +106,7 @@ fn run_single(
                 for msg in messages.iter() {
                     sp_message_senders[player_id].send(msg.to_string()).unwrap();
                 }
-                let msg = ps_message_receivers[player_id].recv().unwrap();
+                let (player_move, player_state) = ps_message_receivers[player_id].recv().unwrap();
 
                 // [RECORD] Record game before playing the move
                 if record_game {
@@ -109,7 +115,11 @@ fn run_single(
                         game_state: game.get_state(),
                         player: player_id as u32,
                         player_input: messages.clone(),
-                        player_move: msg.clone(),
+                        player_state: match player_state {
+                            Some(state) => state,
+                            None => HashMap::new(),
+                        },
+                        player_move: player_move.clone(),
                     };
 
                     game_run_record.turns.push(game_turn_record);
@@ -117,7 +127,7 @@ fn run_single(
                 /////////// [END RECORD]
 
                 turn += 1;
-                game.play(msg);
+                game.play(player_move);
             }
         }
     }

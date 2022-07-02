@@ -25,12 +25,15 @@ How to manually import "player.rs" into CodinGame
   by
     io::stdin().read_line(&mut input_line).unwrap();
 
-5/ 
-    msg_snd.send(format!(
-  by
-    println!(
+5/ Remove code between
+    /* #region [Extract player state] */
+  and
+    /* #endregion */
 
-  & remove a parenthesis at the end of the line
+5/ Replace line
+    msg_snd.send(...
+  by
+    println!("{}", msg);
 
 6/ 
   Check if there's any eprintln! and remove them
