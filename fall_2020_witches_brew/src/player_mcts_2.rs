@@ -327,7 +327,8 @@ mod game {
             let player0: &Player = &state.players[0];
             let player1: &Player = &state.players[1];
 
-            if player0.brewed_potions_count == 6
+            if (player0.rupees as i32 - player1.rupees as i32).abs() >= 20
+                || player0.brewed_potions_count == 6
                 || player1.brewed_potions_count == 6
                 || state.turn == 100
                 || (state.players[0].move_ == Move::WAIT && state.players[1].move_ == Move::WAIT)

@@ -12,8 +12,8 @@ use std::time::Instant;
 fn main() {
     const STATS: bool = true;
     const RECORD: bool = false;
-    const RUN_PERMUT: bool = true;
-    const RUNS: u32 = 20;
+    const RUN_PERMUT: bool = false;
+    const RUNS: u32 = 1;
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/fall_2020_witches_brew/output";
 
@@ -23,7 +23,7 @@ fn main() {
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_mcts_1::play,
+            func: &player_random::play,
             params: None,
         },
     ];
