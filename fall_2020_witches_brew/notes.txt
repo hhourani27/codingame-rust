@@ -18,4 +18,6 @@ Out of 1001 possible stock states
 =================
 Post-mortems
   https://github.com/pb4git/Fall-Challenge-2020
+  https://github.com/Agade09/Agade-Fall2020-Challenge-Postmortem
+  https://www.codingame.com/forum/t/fall-challenge-2020-feedbacks-strategies/187846
   https://www.youtube.com/watch?v=tDxEINreXiI

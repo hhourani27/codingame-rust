@@ -1,3 +1,4 @@
+pub mod graph;
 pub mod simulator;
 use serde::Serialize;
 

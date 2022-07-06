@@ -1,4 +1,5 @@
 mod game_witches_brew;
+mod scripts;
 use common::simulator;
 use common::simulator::PlayerPlayFunction;
 use common::Game;
@@ -9,7 +10,7 @@ mod player_random;
 mod player_random_brewer;
 use std::time::Instant;
 
-fn main() {
+fn run() {
     const STATS: bool = true;
     const RECORD: bool = true;
     const RUN_PERMUT: bool = false;
@@ -69,4 +70,10 @@ fn main() {
         let stats = result.unwrap().unwrap();
         println!("Win statistics : {:?}", stats.players_win_loss);
     }
+}
+
+fn main() {
+    scripts::state_graph::print_state_graph(
+        "C:/Users/hhour/Desktop/codingame-rust/fall_2020_witches_brew/output/graph.dot",
+    );
 }
