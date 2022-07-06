@@ -4,7 +4,7 @@ use common::simulator;
 use common::simulator::PlayerPlayFunction;
 use common::Game;
 use game_witches_brew::WitchesBrewGame;
-mod player_mcts_1;
+mod player_beam_3;
 mod player_mcts_2;
 mod player_random;
 mod player_random_brewer;
