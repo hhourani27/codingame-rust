@@ -801,7 +801,7 @@ mod beam {
             let mut max_eval = -f32::INFINITY;
             let mut most_valuable_node_idx = 0;
 
-            while (start.elapsed().as_millis() < TIME_LIMIT_MS) && (frontier.len() > 0) {
+            'main: while (start.elapsed().as_millis() < TIME_LIMIT_MS) && (frontier.len() > 0) {
                 let mut frontier_temp: Vec<(usize, f32)> = Vec::new();
 
                 for node_idx in frontier.iter() {
@@ -823,6 +823,11 @@ mod beam {
                             eval: 0.0,
                         })
                         .collect::<Vec<Node>>();
+
+                    /* Check if there's still place for children */
+                    if self.len + children.len() > MAX_NODE_COUNT {
+                        break 'main;
+                    }
 
                     /* Add the children nodes to the tree */
                     self.set_children(*node_idx, children);
@@ -855,11 +860,19 @@ mod beam {
                 }
             }
 
-            eprintln!(
-                "[BEAM P3] End. Sending best parth after expanding {} nodes in {:?}",
-                self.len,
-                start.elapsed()
-            );
+            if frontier.len() > 0 {
+                eprintln!(
+                    "[BEAM P4] End. Sending best parth after expanding {} nodes in {:?}",
+                    self.len,
+                    start.elapsed()
+                );
+            } else {
+                eprintln!(
+                    "[BEAM P4] End. Sending best parth after expanding ALL {} nodes in {:?}",
+                    self.len,
+                    start.elapsed()
+                );
+            }
 
             /* When search is finished, determine the most valuable node, and extract its moves */
             let mut best_path: Vec<(game::Move, f32)> = Vec::new();
