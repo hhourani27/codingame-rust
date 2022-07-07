@@ -5,7 +5,7 @@ use common::simulator::PlayerPlayFunction;
 use common::Game;
 use game_witches_brew::WitchesBrewGame;
 mod player_beam_3;
-mod player_mcts_2;
+mod player_beam_4;
 mod player_random;
 mod player_random_brewer;
 use std::time::Instant;
@@ -13,18 +13,18 @@ use std::time::Instant;
 fn run() {
     const STATS: bool = true;
     const RECORD: bool = false;
-    const RUN_PERMUT: bool = false;
-    const RUNS: u32 = 1;
+    const RUN_PERMUT: bool = true;
+    const RUNS: u32 = 10;
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/fall_2020_witches_brew/output";
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_beam_3::play,
+            func: &player_beam_4::play,
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_random::play,
+            func: &player_beam_3::play,
             params: None,
         },
     ];
