@@ -15,6 +15,11 @@ Out of 1001 possible stock states
   There's 86 stock states that cannot fullfill any order
   There 1 stock state that doesn't allow any spell cast : [0, 0, 0, 10]
 
+The max point that a player can get is :
+  Brew the 6 most expensive orders, add 4 +3 bonuses and 2 +1 bonuses: 
+    (20+20+19+18+18+17) + (4*3) + (2*1) = 126
+      => Rupee score can fit into a u8
+
 =================
 Post-mortems
   https://github.com/pb4git/Fall-Challenge-2020

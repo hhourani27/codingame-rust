@@ -28,7 +28,7 @@ pub struct StackVector<T: Copy + Clone + Default, const MAX_SIZE: usize> {
 impl<T: Copy + Clone + Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> {
     pub fn new() -> Self {
         Self {
-            arr: [Default::default(); MAX_SIZE],
+            arr: [T::default(); MAX_SIZE],
             len: 0,
         }
     }

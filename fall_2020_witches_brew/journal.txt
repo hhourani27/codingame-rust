@@ -14,3 +14,10 @@ Player 2
     on 1st turn, I was expanding 4932 nodes and running 3153 simulations (on local)
     on 1st turn, I was expanding 5424 nodes and running 3318 simulations (on codingame)
     Rank: Silver league 284th
+
+Player 3
+  Strategy
+    Use Beam search
+  Result 
+    On 1st turn, I was searching 150K nodes in 40ms 
+    Rank: Gold league 169th

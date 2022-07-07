@@ -12,7 +12,7 @@ use std::time::Instant;
 
 fn run() {
     const STATS: bool = true;
-    const RECORD: bool = true;
+    const RECORD: bool = false;
     const RUN_PERMUT: bool = false;
     const RUNS: u32 = 1;
 
@@ -20,11 +20,11 @@ fn run() {
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_mcts_2::play,
+            func: &player_beam_3::play,
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_mcts_2::play,
+            func: &player_random::play,
             params: None,
         },
     ];
@@ -73,7 +73,5 @@ fn run() {
 }
 
 fn main() {
-    scripts::state_graph::print_state_graph(
-        "C:/Users/hhour/Desktop/codingame-rust/fall_2020_witches_brew/output/graph.dot",
-    );
+    run();
 }
