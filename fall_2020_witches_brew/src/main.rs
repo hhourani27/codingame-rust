@@ -4,8 +4,8 @@ use common::simulator;
 use common::simulator::PlayerPlayFunction;
 use common::Game;
 use game_witches_brew::WitchesBrewGame;
-mod player_beam_3;
 mod player_beam_4;
+mod player_beam_5;
 mod player_random;
 mod player_random_brewer;
 use std::time::Instant;
@@ -20,11 +20,11 @@ fn run() {
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_beam_4::play,
+            func: &player_beam_5::play,
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_beam_3::play,
+            func: &player_beam_4::play,
             params: None,
         },
     ];
