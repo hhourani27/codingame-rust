@@ -19,5 +19,13 @@ Player 3
   Strategy
     Use Beam search
   Result 
-    On 1st turn, I was searching 150K nodes in 40ms 
+    On 1st turn, I was searching 150K nodes in 49ms 
     Rank: Gold league 169th
+
+Player 4
+  Strategy
+    Use Beam search.
+    Force Learn when I have less than 10 spells
+  Result 
+    On 1st turn, I was searching 100K nodes in 49ms 
+    Rank: Gold league 9th

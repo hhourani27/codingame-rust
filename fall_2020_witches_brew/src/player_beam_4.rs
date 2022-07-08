@@ -215,43 +215,50 @@ mod game {
 
         let mut valid_moves: Vec<Move> = Vec::new();
 
-        /* (A) Determine Valid moves */
+        /* If it's a terminal node, don't return any state */
 
-        /* BREW moves */
-        // Check which order the player can fulfill and add them as a valid move
-        for order_id in orders.iter() {
-            if cache.can_fulfill_order(*order_id, player_stock_id) {
-                valid_moves.push(Move::BREW(*order_id));
+        if state.turn == 100 || state.player.brewed_potions_count == 6 {
+        } else if player_spells.len() < 10 {
+            valid_moves.push(Move::LEARN(tome_spells[0].0))
+        } else {
+            /* (A) Determine Valid moves */
+
+            /* BREW moves */
+            // Check which order the player can fulfill and add them as a valid move
+            for order_id in orders.iter() {
+                if cache.can_fulfill_order(*order_id, player_stock_id) {
+                    valid_moves.push(Move::BREW(*order_id));
+                }
             }
-        }
 
-        /* CAST moves */
-        // Check which spell the player can cast and add them as a valid move
-        // in the meantime check if there are inactive spells
-        let mut all_spells_are_active = true;
-        for (spell_id, active) in player_spells.iter() {
-            if *active == false {
-                all_spells_are_active = false;
-            } else {
-                let times_can_cast_spell =
-                    cache.how_many_times_can_cast_spell(*spell_id, player_stock_id);
-                if times_can_cast_spell > 0 {
-                    for n in 1..=times_can_cast_spell {
-                        valid_moves.push(Move::CAST(*spell_id, n));
+            /* CAST moves */
+            // Check which spell the player can cast and add them as a valid move
+            // in the meantime check if there are inactive spells
+            let mut all_spells_are_active = true;
+            for (spell_id, active) in player_spells.iter() {
+                if *active == false {
+                    all_spells_are_active = false;
+                } else {
+                    let times_can_cast_spell =
+                        cache.how_many_times_can_cast_spell(*spell_id, player_stock_id);
+                    if times_can_cast_spell > 0 {
+                        for n in 1..=times_can_cast_spell {
+                            valid_moves.push(Move::CAST(*spell_id, n));
+                        }
                     }
                 }
             }
-        }
 
-        /* REST move */
-        if all_spells_are_active == false {
-            valid_moves.push(Move::REST);
-        }
+            /* REST move */
+            if all_spells_are_active == false {
+                valid_moves.push(Move::REST);
+            }
 
-        /* LEARN moves */
-        if tome_spells.len() > 0 {
-            for t in 0..=std::cmp::min(player_stock[0] as usize, tome_spells.len() - 1) {
-                valid_moves.push(Move::LEARN(tome_spells[t].0));
+            /* LEARN moves */
+            if tome_spells.len() > 0 {
+                for t in 0..=std::cmp::min(player_stock[0] as usize, tome_spells.len() - 1) {
+                    valid_moves.push(Move::LEARN(tome_spells[t].0));
+                }
             }
         }
 

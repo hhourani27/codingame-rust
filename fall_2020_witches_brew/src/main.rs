@@ -12,8 +12,8 @@ use std::time::Instant;
 
 fn run() {
     const STATS: bool = true;
-    const RECORD: bool = false;
-    const RUN_PERMUT: bool = true;
+    const RECORD: bool = true;
+    const RUN_PERMUT: bool = false;
     const RUNS: u32 = 10;
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/fall_2020_witches_brew/output";
