@@ -20,6 +20,19 @@ The max point that a player can get is :
     (20+20+19+18+18+17) + (4*3) + (2*1) = 126
       => Rupee score can fit into a u8
 
+================
+Parameter tests
+  Original parameters Beam = 1000, Max_node = 300K, Time limit = 49ms
+  Beam = 1000, Max_node = 500K, Time limit = 100ms
+    No difference in performance. Max nodes used is 190K. Avg time is 46ms, Max time is 95ms
+      Conclusion: 2X the time alloted for search doesn't improve performance
+  Beam = 2000, Max_node = 500K, Time limit = 100ms
+    slighlty lower performance. Max nodes used is 400K. Avg time is 78ms, Max time is 107ms
+      Conclusion: Increasing beam size lowers performance
+  Beam = 2000, Max_node = 500K, Time limit = 500ms
+    No difference in performance. Max nodes used is 500K. Avg time is 91ms, Max time is 220ms
+
+
 =================
 Post-mortems
   https://github.com/pb4git/Fall-Challenge-2020
