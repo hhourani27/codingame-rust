@@ -866,21 +866,19 @@ mod beam {
                     frontier.push(frontier_temp[i].0);
                 }
             }
-            /*
-                        if frontier.len() > 0 {
-                            eprintln!(
-                                "[BEAM P4] End. Sending best parth after expanding {} nodes in {:?}",
-                                self.len,
-                                start.elapsed()
-                            );
-                        } else {
-                            eprintln!(
-                                "[BEAM P4] End. Sending best parth after expanding ALL {} nodes in {:?}",
-                                self.len,
-                                start.elapsed()
-                            );
-                        }
-            */
+            if frontier.len() > 0 {
+                eprintln!(
+                    "[BEAM P4] End. Sending best parth after expanding {} nodes in {:?}",
+                    self.len,
+                    start.elapsed()
+                );
+            } else {
+                eprintln!(
+                    "[BEAM P4] End. Sending best parth after expanding ALL {} nodes in {:?}",
+                    self.len,
+                    start.elapsed()
+                );
+            }
             /* When search is finished, determine the most valuable node, and extract its moves */
             let mut best_path: Vec<(game::Move, f32)> = Vec::new();
             let mut n = most_valuable_node_idx;

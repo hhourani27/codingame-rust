@@ -810,6 +810,7 @@ mod beam {
 
             'main: while (start.elapsed().as_millis() < TIME_LIMIT_MS) && (frontier.len() > 0) {
                 let mut frontier_temp: Vec<(usize, f32)> = Vec::new();
+                let mut min_eval_temp: f32 = f32::INFINITY;
 
                 for node_idx in frontier.iter() {
                     let node = &self.arr[*node_idx];
@@ -818,7 +819,7 @@ mod beam {
                         game::next_states(&node.state, cache);
 
                     /* Create children nodes */
-                    let children: Vec<Node> = next_states
+                    let mut children: Vec<Node> = next_states
                         .into_iter()
                         .map(|(move_, state)| Node {
                             move_: move_,
@@ -827,7 +828,7 @@ mod beam {
                             child_first: None,
                             child_count: 0,
                             depth: node.depth + 1,
-                            eval: 0.0,
+                            eval: Beam::eval(&state, node.depth),
                         })
                         .collect::<Vec<Node>>();
 
@@ -836,21 +837,28 @@ mod beam {
                         break 'main;
                     }
 
+                    /* Remove children whose score is so low, they will never be added to the frontier */
+                    if frontier_temp.len() > BEAM_SIZE {
+                        children.retain(|c| c.eval > min_eval_temp);
+                    }
+
                     /* Add the children nodes to the tree */
                     self.set_children(*node_idx, children);
 
-                    /* Evaluate each children node */
+                    /* Determine the highest & lowest child score so far */
                     let parent_node = &self.arr[*node_idx];
                     for child_idx in parent_node.child_first.unwrap()
                         ..parent_node.child_first.unwrap() + parent_node.child_count as usize
                     {
-                        let child: &mut Node = &mut self.arr[child_idx];
-                        child.eval = Beam::eval(&child);
+                        let child: &Node = &self.arr[child_idx];
 
                         /* Determine if it's the most valuable node so far */
                         if child.eval > max_eval {
                             max_eval = child.eval;
                             most_valuable_node_idx = child_idx;
+                        }
+                        if child.eval < min_eval_temp {
+                            min_eval_temp = child.eval;
                         }
 
                         /* And add it to the temp frontier */
@@ -917,10 +925,10 @@ mod beam {
             }
         }
 
-        fn eval(node: &Node) -> f32 {
+        fn eval(state: &game::State, node_depth: usize) -> f32 {
             const PATH_LEN_FACTOR: f32 = 0.99;
 
-            game::eval(&node.state) * PATH_LEN_FACTOR.powi(node.depth as i32)
+            game::eval(state) * PATH_LEN_FACTOR.powi(node_depth as i32)
         }
     }
 }
