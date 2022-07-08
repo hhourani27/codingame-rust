@@ -713,7 +713,7 @@ mod game {
         None
     }
 
-    fn get_tome_spell_position(ids: &[(u32, u8)], id: u32) -> Option<usize> {
+    pub fn get_tome_spell_position(ids: &[(u32, u8)], id: u32) -> Option<usize> {
         for i in 0..ids.len() {
             if ids[i].0 == id {
                 return Some(i);
@@ -869,13 +869,13 @@ mod beam {
 
             if frontier.len() > 0 {
                 eprintln!(
-                    "[BEAM P5] End. Sending best parth after expanding {} nodes in {:?}",
+                    "[BEAM P5] End. Sending best path after expanding {} nodes in {:?}",
                     self.len,
                     start.elapsed()
                 );
             } else {
                 eprintln!(
-                    "[BEAM P5] End. Sending best parth after expanding ALL {} nodes in {:?}",
+                    "[BEAM P5] End. Sending best path after expanding ALL {} nodes in {:?}",
                     self.len,
                     start.elapsed()
                 );
@@ -1053,18 +1053,131 @@ pub fn play(
         /* Initialize states */
 
         let state = game::State {
-            player: players[0],
+            player: players[0].clone(),
             counter_orders,
             plus_3_bonus_remaining,
             plus_1_bonus_remaining,
 
-            tome_spells,
+            tome_spells: tome_spells.clone(),
             turn,
         };
 
-        // (3) Determine the next best action
-        let best_path = beam.best_path(state, &cache);
+        /* Extract best path */
+        let mut best_path = beam.best_path(state, &cache);
+
+        /* Correct Path ofr mistakes */
+
+        /* Mistake 1 : The next path is learning a spell. But I'm never going to use this spell */
+        fn is_this_spell_used(spell_id: u32, path: &Vec<(game::Move, f32)>) -> bool {
+            for (m, e) in path.iter() {
+                if let game::Move::CAST(cs, t) = m {
+                    if *cs == spell_id {
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+
+        fn does_this_spell_have_tax(
+            spell_id: u32,
+            tome_spells: &StackVector<(u32, u8), 6>,
+        ) -> bool {
+            let mut spell_was_found = false;
+            for (tome_spell_id, tax) in tome_spells.slice().iter() {
+                if *tome_spell_id == spell_id {
+                    spell_was_found = true;
+                    if *tax > 0 {
+                        return true;
+                    }
+                }
+            }
+            match spell_was_found {
+                true => false,
+                false => panic!(),
+            }
+        }
+
+        let mut starting_consecutive_learn_count = 0;
+        for (m, e) in best_path.iter() {
+            if let game::Move::LEARN(ls) = m {
+                starting_consecutive_learn_count += 1;
+            } else {
+                break;
+            }
+        }
+
+        if starting_consecutive_learn_count > 0 {
+            let mut learn_to_remove_count = 0;
+            for i in 0..starting_consecutive_learn_count {
+                let learn_move = best_path[i].0;
+                match learn_move {
+                    game::Move::LEARN(ls) => {
+                        if is_this_spell_used(ls, &best_path)
+                            || does_this_spell_have_tax(ls, &tome_spells)
+                        {
+                            break;
+                        } else if game::get_tome_spell_position(&tome_spells.slice(), ls).unwrap()
+                            > players[0].stock[0] as usize
+                        {
+                            learn_to_remove_count -=
+                                (game::get_tome_spell_position(&tome_spells.slice(), ls).unwrap()
+                                    - players[0].stock[0] as usize);
+                        } else {
+                            learn_to_remove_count += 1;
+                        }
+                    }
+                    _ => panic!(),
+                }
+            }
+
+            for i in 0..learn_to_remove_count {
+                let removed_learn = best_path.remove(0);
+                eprintln!("Removed unused move {}", removed_learn.0);
+            }
+        }
+
+        /* Mistake 2 : I don't need a REST in order to BREW the next potion */
+        if let game::Move::REST = best_path[0].0 {
+            //get next BREW position
+            let mut next_brew_pos = -1;
+            for i in 1..best_path.len() {
+                if let game::Move::BREW(o) = best_path[i].0 {
+                    next_brew_pos = i as i32;
+                    break;
+                }
+            }
+
+            if next_brew_pos > -1 {
+                let inactive_spells = players[0]
+                    .spells
+                    .slice()
+                    .iter()
+                    .filter(|(s, active)| *active == false)
+                    .map(|(s, active)| *s)
+                    .collect::<Vec<u32>>();
+
+                let mut rest_is_needed = false;
+                for i in 1..next_brew_pos as usize {
+                    if let game::Move::CAST(s, t) = best_path[i].0 {
+                        if inactive_spells.contains(&s) {
+                            rest_is_needed = true;
+                            break;
+                        }
+                    }
+                }
+
+                if rest_is_needed == false {
+                    best_path.remove(0);
+                    eprintln!("Removed unused REST");
+                }
+            }
+        }
+
+        /* Extract best move */
         let best_move = best_path[0].0;
+
+        /* Update turn */
         turn += 1;
 
         // convert move to codingame id
