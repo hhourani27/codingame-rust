@@ -368,6 +368,10 @@ mod game {
             + TIER3_FACTOR * state.player.stock[3] as f32
     }
 
+    pub fn is_terminal(state: &State) -> bool {
+        state.player.brewed_potions_count >= 6
+    }
+
     /* #region(collapsed) [Cache] */
 
     #[allow(non_snake_case)]
@@ -749,8 +753,13 @@ mod beam {
     use super::game;
     use std::time::Instant;
 
-    const MAX_NODE_COUNT: usize = 300_000;
+    const MAX_NODE_COUNT: usize = 1000_000;
     const TIME_LIMIT_MS: u128 = 49;
+
+    pub enum SEARCH_ALGO {
+        BEAM,
+        BFS,
+    }
 
     #[derive(Clone, Copy)]
     struct Node {
@@ -793,6 +802,86 @@ mod beam {
 
         /* Return the best found path. Path is a vector of Move, eval score */
         pub fn best_path(
+            &mut self,
+            start_state: game::State,
+            search_algo: SEARCH_ALGO,
+            cache: &game::Cache,
+        ) -> Vec<(game::Move, f32)> {
+            match search_algo {
+                SEARCH_ALGO::BEAM => self.best_path_beam(start_state, cache),
+                SEARCH_ALGO::BFS => self.best_path_bfs(start_state, cache),
+            }
+        }
+
+        pub fn best_path_bfs(
+            &mut self,
+            start_state: game::State,
+            cache: &game::Cache,
+        ) -> Vec<(game::Move, f32)> {
+            let start = Instant::now();
+            self.init(start_state);
+
+            let mut frontier: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+            frontier.push_back(0);
+
+            while frontier.len() > 0 {
+                let node_idx = frontier.pop_front().unwrap();
+                let node = &self.arr[node_idx];
+
+                if game::is_terminal(&node.state) == true {
+                    let mut best_path: Vec<(game::Move, f32)> = Vec::new();
+                    let mut n = node_idx;
+                    while self.arr[n].parent.is_some() {
+                        best_path.push((self.arr[n].move_, 0.0));
+                        n = self.arr[n].parent.unwrap();
+                    }
+
+                    best_path.reverse();
+
+                    eprintln!(
+                        "[BEAM P5] BFS search ended. Expanded {} nodes in {:?}",
+                        self.len,
+                        start.elapsed()
+                    );
+
+                    return best_path;
+                } else {
+                    /* Get the next states & moves */
+                    let next_states: Vec<(game::Move, game::State)> =
+                        game::next_states(&node.state, cache);
+
+                    /* Create children nodes */
+                    let mut children: Vec<Node> = next_states
+                        .into_iter()
+                        .map(|(move_, state)| Node {
+                            move_: move_,
+                            state: state,
+                            parent: Some(node_idx),
+                            child_first: None,
+                            child_count: 0,
+                            depth: node.depth + 1,
+                            eval: 0.0,
+                        })
+                        .collect::<Vec<Node>>();
+
+                    /* Add the children nodes to the tree */
+                    self.set_children(node_idx, children);
+
+                    let parent_node = &self.arr[node_idx];
+                    for child_idx in parent_node.child_first.unwrap()
+                        ..parent_node.child_first.unwrap() + parent_node.child_count as usize
+                    {
+                        let child: &Node = &self.arr[child_idx];
+
+                        frontier.push_back(child_idx);
+                    }
+                }
+            }
+
+            panic!("Couldn't find a path");
+        }
+
+        pub fn best_path_beam(
             &mut self,
             start_state: game::State,
             cache: &game::Cache,
@@ -877,13 +966,13 @@ mod beam {
 
             if frontier.len() > 0 {
                 eprintln!(
-                    "[BEAM P5] End. Sending best path after expanding {} nodes in {:?}",
+                    "[BEAM P5] BEAM search ended. Expanded {} nodes in {:?}",
                     self.len,
                     start.elapsed()
                 );
             } else {
                 eprintln!(
-                    "[BEAM P5] End. Sending best path after expanding ALL {} nodes in {:?}",
+                    "[BEAM P5] BEAM search ended. Expanded ALL {} nodes in {:?}",
                     self.len,
                     start.elapsed()
                 );
@@ -1070,8 +1159,18 @@ pub fn play(
             turn,
         };
 
+        //let is_endgame = players[0].brewed_potions_count >= 4;
+        let is_endgame = false;
+
         /* Extract best path */
-        let mut best_path = beam.best_path(state, &cache);
+        let best_path = beam.best_path(
+            state,
+            match is_endgame {
+                true => beam::SEARCH_ALGO::BFS,
+                false => beam::SEARCH_ALGO::BEAM,
+            },
+            &cache,
+        );
 
         /* Extract best move */
         let best_move = best_path[0].0;
@@ -1107,7 +1206,6 @@ pub fn play(
         /* #endregion */
 
         let msg = best_move_cg.to_string();
-        //msg_snd.send((format!("{}", msg), None));
         msg_snd.send((format!("{}", msg), Some(player_state)));
     }
 }

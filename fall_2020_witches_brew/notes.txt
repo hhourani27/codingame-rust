@@ -33,6 +33,14 @@ Parameter tests
     No difference in performance. Max nodes used is 500K. Avg time is 91ms, Max time is 220ms
 
 
+========================
+Ideas 
+- Always take the max CAST
+- Define Endgame as brewed_potion_count > 4 or 5
+- Do not LEARN during endgame
+- Use BFS during endgame 
+
+
 =================
 Post-mortems
   https://github.com/pb4git/Fall-Challenge-2020
