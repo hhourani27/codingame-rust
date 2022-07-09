@@ -242,9 +242,18 @@ mod game {
                     let times_can_cast_spell =
                         cache.how_many_times_can_cast_spell(*spell_id, player_stock_id);
                     if times_can_cast_spell > 0 {
+                        if state.player.brewed_potions_count < 4 {
+                            for n in 1..=times_can_cast_spell {
+                                valid_moves.push(Move::CAST(*spell_id, n));
+                            }
+                        } else {
+                            valid_moves.push(Move::CAST(*spell_id, times_can_cast_spell));
+                        }
+                        /*
                         for n in 1..=times_can_cast_spell {
                             valid_moves.push(Move::CAST(*spell_id, n));
                         }
+                        */
                     }
                 }
             }
@@ -255,9 +264,11 @@ mod game {
             }
 
             /* LEARN moves */
-            if tome_spells.len() > 0 {
-                for t in 0..=std::cmp::min(player_stock[0] as usize, tome_spells.len() - 1) {
-                    valid_moves.push(Move::LEARN(tome_spells[t].0));
+            if state.player.brewed_potions_count < 4 {
+                if tome_spells.len() > 0 {
+                    for t in 0..=std::cmp::min(player_stock[0] as usize, tome_spells.len() - 1) {
+                        valid_moves.push(Move::LEARN(tome_spells[t].0));
+                    }
                 }
             }
         }
@@ -368,8 +379,12 @@ mod game {
             + TIER3_FACTOR * state.player.stock[3] as f32
     }
 
-    pub fn is_terminal(state: &State) -> bool {
-        state.player.brewed_potions_count >= 6
+    pub fn is_terminal(move_: &Move, state: &State) -> bool {
+        if let Move::BREW(o) = move_ {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /* #region(collapsed) [Cache] */
@@ -753,7 +768,7 @@ mod beam {
     use super::game;
     use std::time::Instant;
 
-    const MAX_NODE_COUNT: usize = 1000_000;
+    const MAX_NODE_COUNT: usize = 1_200_000;
     const TIME_LIMIT_MS: u128 = 49;
 
     pub enum SEARCH_ALGO {
@@ -828,7 +843,7 @@ mod beam {
                 let node_idx = frontier.pop_front().unwrap();
                 let node = &self.arr[node_idx];
 
-                if game::is_terminal(&node.state) == true {
+                if game::is_terminal(&node.move_, &node.state) == true {
                     let mut best_path: Vec<(game::Move, f32)> = Vec::new();
                     let mut n = node_idx;
                     while self.arr[n].parent.is_some() {
@@ -1159,8 +1174,8 @@ pub fn play(
             turn,
         };
 
-        //let is_endgame = players[0].brewed_potions_count >= 4;
-        let is_endgame = false;
+        let is_endgame = players[0].brewed_potions_count >= 4;
+        //let is_endgame = false;
 
         /* Extract best path */
         let best_path = beam.best_path(

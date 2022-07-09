@@ -74,4 +74,5 @@ fn run() {
 
 fn main() {
     run();
+    //scripts::calculate_mem_usage::run();
 }
