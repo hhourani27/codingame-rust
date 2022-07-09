@@ -39,6 +39,10 @@ Memory usage
   - 300K nodes take 157 Mb
   - 1M nodes take 522Mb
 - Cache takes 200Kb
+- If I remove the State, a Node takes 64 bytes
+  - 300K nodes take 19Mb
+  - 1M nodes take 64Mb
+  - 8M nodes take 512Mb
 
 
 ========================

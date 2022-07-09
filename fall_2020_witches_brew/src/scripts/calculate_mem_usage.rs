@@ -55,8 +55,7 @@ pub struct State {
 
 struct Node {
     move_: Move,
-    state: State,
-
+    //state: State,
     parent: Option<usize>,
     child_first: Option<usize>,
     child_count: usize,
@@ -74,6 +73,6 @@ struct Cache {
 }
 
 pub fn run() {
-    println!("Memory taken by State: {}", std::mem::size_of::<Node>());
+    println!("Memory taken by Node: {}", std::mem::size_of::<Node>());
     println!("Memory taken by Cache: {} ", std::mem::size_of::<Cache>());
 }
