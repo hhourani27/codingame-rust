@@ -6,32 +6,47 @@ Generate a DOT graph where :
 - There are 1001 stock state nodes
 - Edges correspond to SPELL CASTS or BREW orders
 */
-pub fn print_state_graph(file_path: &str) {
-    #[derive(Copy, Clone)]
-    enum Edge {
-        CAST(u32),
-        BREW(u32),
-    }
 
-    impl Display for Edge {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Edge::CAST(i) => write!(f, "C {}", i),
-                Edge::BREW(i) => write!(f, "B {}", i),
-            }
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum Edge {
+    CAST(u32),
+    BREW(u32),
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+struct Node(Stock);
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let stock = self.0;
+        write!(
+            f,
+            "[{}, {}, {}, {}]",
+            stock[0], stock[1], stock[2], stock[3]
+        )
+    }
+}
+
+impl Display for Edge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Edge::CAST(i) => write!(f, "C {}", i),
+            Edge::BREW(i) => write!(f, "B {}", i),
         }
     }
+}
 
-    let mut graph: Graph<StockId, Edge> = Graph::new();
+fn get_state_graph() -> Graph<Node, Edge> {
+    let mut graph: Graph<Node, Edge> = Graph::new();
 
     /* (1) Create nodes */
-    let map_stockArr4_stockId = get_map_stockArr4_stockId();
+    let map_stockArr4_stockId = get_map_stockArr4_stockId().0;
     for t0 in 0..=10 {
         for t1 in 0..=(10 - t0) {
             for t2 in 0..=(10 - t0 - t1) {
                 for t3 in 0..=(10 - t0 - t1 - t2) {
                     let stock_id: StockId = map_stockArr4_stockId[t0][t1][t2][t3];
-                    graph.add_node(stock_id);
+                    graph.add_node(Node([t0 as i8, t1 as i8, t2 as i8, t3 as i8]));
                 }
             }
         }
@@ -45,6 +60,7 @@ pub fn print_state_graph(file_path: &str) {
             for t2 in 0..=(10 - t0 - t1) {
                 for t3 in 0..=(10 - t0 - t1 - t2) {
                     let stock: Stock = [t0 as i8, t1 as i8, t2 as i8, t3 as i8];
+                    let node = Node(stock);
                     let stock_id: StockId = map_stockArr4_stockId[t0][t1][t2][t3];
 
                     /* (2.1) ADD BREW EDGES */
@@ -52,11 +68,12 @@ pub fn print_state_graph(file_path: &str) {
                         if can_fulfill_order(order, &stock) {
                             let mut end_stock = stock.clone();
                             update_stock(&mut end_stock, &order.recipe);
+                            let end_node = Node(end_stock);
                             let end_stock_id = map_stockArr4_stockId[end_stock[0] as usize]
                                 [end_stock[1] as usize][end_stock[2] as usize]
                                 [end_stock[3] as usize];
 
-                            graph.add_edge(stock_id, end_stock_id, Edge::BREW(order.id));
+                            graph.add_edge(node, end_node, Edge::BREW(order.id));
                         }
                     }
 
@@ -65,22 +82,48 @@ pub fn print_state_graph(file_path: &str) {
                         if can_cast_spell(spell, &stock) {
                             let mut end_stock = stock.clone();
                             update_stock(&mut end_stock, &spell.recipe);
+                            let end_node = Node(end_stock);
                             let end_stock_id = map_stockArr4_stockId[end_stock[0] as usize]
                                 [end_stock[1] as usize][end_stock[2] as usize]
                                 [end_stock[3] as usize];
 
-                            graph.add_edge(stock_id, end_stock_id, Edge::CAST(spell.id));
+                            graph.add_edge(node, end_node, Edge::CAST(spell.id));
                         }
                     }
                 }
             }
         }
     }
+    graph
+}
 
-    println!("Node count : {}", graph.node_count());
-    println!("Edge count : {}", graph.edge_count());
+pub fn compute_shortest_paths() {
+    let state_graph = get_state_graph();
 
-    graph.print_dot(file_path);
+    let orders = get_all_orders();
+
+    let stock = [0, 0, 0, 0];
+    let node = Node(stock);
+    let order_id = 20;
+
+    let path = state_graph
+        .bfs_node_to_edge(&node, &Edge::BREW(order_id))
+        .unwrap()
+        .unwrap();
+
+    println!("{:?}", stock);
+    for (e, n) in path.iter() {
+        println!("{} -> {}", e, n);
+    }
+}
+
+pub fn print_state_graph(file_path: &str) {
+    let state_graph = get_state_graph();
+
+    println!("Node count : {}", state_graph.node_count());
+    println!("Edge count : {}", state_graph.edge_count());
+
+    state_graph.print_dot(file_path);
 }
 
 /* #region(collapsed) [Helper functions & structs] */
@@ -265,9 +308,10 @@ fn get_basic_spells() -> Vec<Spell> {
     .to_vec()
 }
 
-fn get_map_stockArr4_stockId() -> Vec<Vec<Vec<Vec<usize>>>> {
+fn get_map_stockArr4_stockId() -> (Vec<Vec<Vec<Vec<usize>>>>, [[usize; 4]; 1001]) {
     let mut map_stockArr4_stockId: Vec<Vec<Vec<Vec<usize>>>> =
         vec![vec![vec![vec![0; 11]; 11]; 11]; 11];
+    let mut map_stockId_stockArr4: [[usize; 4]; 1001] = [[0; 4]; 1001];
 
     let mut id = 0;
     for t0 in 0..=10 {
@@ -275,6 +319,7 @@ fn get_map_stockArr4_stockId() -> Vec<Vec<Vec<Vec<usize>>>> {
             for t2 in 0..=(10 - t0 - t1) {
                 for t3 in 0..=(10 - t0 - t1 - t2) {
                     map_stockArr4_stockId[t0][t1][t2][t3] = id;
+                    map_stockId_stockArr4[id] = [t0, t1, t2, t3];
 
                     id += 1;
                 }
@@ -282,7 +327,7 @@ fn get_map_stockArr4_stockId() -> Vec<Vec<Vec<Vec<usize>>>> {
         }
     }
 
-    map_stockArr4_stockId
+    (map_stockArr4_stockId, map_stockId_stockArr4)
 }
 
 fn can_fulfill_order(order: &Order, stock: &Stock) -> bool {

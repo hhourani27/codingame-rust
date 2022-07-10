@@ -74,4 +74,8 @@ fn run() {
 
 fn main() {
     run();
+    //scripts::compute_shortest_path::run();
+    /*scripts::state_graph::print_state_graph(
+        "C:/Users/hhour/Desktop/codingame-rust/fall_2020_witches_brew/graph.dot",
+    );*/
 }
