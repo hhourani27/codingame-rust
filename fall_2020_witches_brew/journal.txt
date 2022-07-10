@@ -29,3 +29,11 @@ Player 4
   Result 
     On 1st turn, I was searching 100K nodes in 49ms 
     Rank: Gold league 9th
+
+Player 5
+  Strategy
+    Use Beam search.
+    Tweak eval function of Beam
+    During endgame (brewed potion = 5), use an optimized BFS
+  Result
+    Rank : Legend league 55th

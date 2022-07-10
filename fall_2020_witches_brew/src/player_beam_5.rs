@@ -242,7 +242,7 @@ mod game {
                     let times_can_cast_spell =
                         cache.how_many_times_can_cast_spell(*spell_id, player_stock_id);
                     if times_can_cast_spell > 0 {
-                        if state.player.brewed_potions_count < 4 {
+                        if state.player.brewed_potions_count < 5 {
                             for n in 1..=times_can_cast_spell {
                                 valid_moves.push(Move::CAST(*spell_id, n));
                             }
@@ -264,7 +264,7 @@ mod game {
             }
 
             /* LEARN moves */
-            if state.player.brewed_potions_count < 4 {
+            if state.player.brewed_potions_count < 5 {
                 if tome_spells.len() > 0 {
                     for t in 0..=std::cmp::min(player_stock[0] as usize, tome_spells.len() - 1) {
                         valid_moves.push(Move::LEARN(tome_spells[t].0));
@@ -367,16 +367,20 @@ mod game {
 
     pub fn eval(state: &State) -> f32 {
         const TIER0_FACTOR: f32 = 1.0;
-        const TIER1_FACTOR: f32 = 3.0;
+        const TIER1_FACTOR: f32 = 2.0;
         const TIER2_FACTOR: f32 = 3.0;
-        const TIER3_FACTOR: f32 = 3.0;
-        const RUPEES_FACTOR: f32 = 20.0;
+        const TIER3_FACTOR: f32 = 4.0;
+        const RUPEES_FACTOR: f32 = 2.0;
 
-        RUPEES_FACTOR * state.player.rupees as f32
-            + TIER0_FACTOR * state.player.stock[0] as f32
-            + TIER1_FACTOR * state.player.stock[1] as f32
-            + TIER2_FACTOR * state.player.stock[2] as f32
-            + TIER3_FACTOR * state.player.stock[3] as f32
+        if state.player.brewed_potions_count == 6 {
+            10000.0
+        } else {
+            RUPEES_FACTOR * state.player.rupees as f32
+                + TIER0_FACTOR * state.player.stock[0] as f32
+                + TIER1_FACTOR * state.player.stock[1] as f32
+                + TIER2_FACTOR * state.player.stock[2] as f32
+                + TIER3_FACTOR * state.player.stock[3] as f32
+        }
     }
 
     pub fn is_terminal(move_: &Move, state: &State) -> bool {
@@ -1174,7 +1178,7 @@ pub fn play(
             turn,
         };
 
-        let is_endgame = players[0].brewed_potions_count >= 4;
+        let is_endgame = players[0].brewed_potions_count >= 5;
         //let is_endgame = false;
 
         /* Extract best path */
