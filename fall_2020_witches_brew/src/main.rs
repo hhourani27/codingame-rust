@@ -12,7 +12,7 @@ use std::time::Instant;
 
 fn run() {
     const STATS: bool = true;
-    const RECORD: bool = false;
+    const RECORD: bool = true;
     const RUN_PERMUT: bool = false;
     const RUNS: u32 = 10;
 
