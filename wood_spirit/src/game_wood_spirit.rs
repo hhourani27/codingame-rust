@@ -823,10 +823,7 @@ impl Game for WoodSpiritGame {
                 text: None,
                 text_style: Some({
                     let mut css = HashMap::new();
-                    css.insert(
-                        "text-decoration".to_string(),
-                        "underline dotted gray;".to_string(),
-                    );
+                    css.insert("text-decoration".to_string(), "underline".to_string());
                     css
                 }),
                 cell_style: None,
