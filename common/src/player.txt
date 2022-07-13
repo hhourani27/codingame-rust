@@ -6,10 +6,10 @@ How to manually import "player.rs" into CodinGame
     use std::io;
 
 2/ Replace
-    pub fn play(
+pub fn play(
     ctr_rcv: Receiver<bool>,
     msg_rcv: Receiver<String>,
-    msg_snd: Sender<String>,
+    msg_snd: Sender<(String, Option<std::collections::HashMap<String, String>>)>,
     params: Option<Vec<String>>,
 ) {
   by

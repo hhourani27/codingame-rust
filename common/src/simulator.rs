@@ -29,6 +29,8 @@ pub struct PlayerPlayFunction {
         Sender<(String, Option<HashMap<String, String>>)>,
         Option<Vec<String>>,
     ) + Sync),
+
+    // Parameters that are sent to the player
     pub params: Option<Vec<String>>,
 }
 
