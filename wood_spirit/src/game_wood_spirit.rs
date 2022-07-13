@@ -43,7 +43,7 @@ impl Move {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Tree {
     SMALL_TREE,
     MEDIUM_TREE,
@@ -95,9 +95,9 @@ pub struct WoodSpiritGame {
 /* #region(collapsed) [Helper method] */
 fn get_cell_indices(richness: SoilRichness) -> Vec<usize> {
     match richness {
-        HIGH_QUALITY => (0..=6).collect::<Vec<usize>>(),
-        MEDIUM_QUALITY => (7..=18).collect::<Vec<usize>>(),
-        LOW_QUALITY => (19..=36).collect::<Vec<usize>>(),
+        SoilRichness::HIGH_QUALITY => (0..=6).collect::<Vec<usize>>(),
+        SoilRichness::MEDIUM_QUALITY => (7..=18).collect::<Vec<usize>>(),
+        SoilRichness::LOW_QUALITY => (19..=36).collect::<Vec<usize>>(),
     }
 }
 
@@ -108,6 +108,10 @@ fn get_cell_richness(cell: usize) -> SoilRichness {
         19..=36 => SoilRichness::LOW_QUALITY,
         _ => panic!("Invalid cell index"),
     }
+}
+
+fn gained_sun_points(small_tree_count: u8, medium_tree_count: u8, large_tree_count: u8) -> u32 {
+    small_tree_count as u32 + medium_tree_count as u32 * 2 + large_tree_count as u32 * 3
 }
 
 fn valid_moves(
@@ -156,6 +160,43 @@ fn valid_moves(
     valid_moves
 }
 
+fn init_with_params(players_trees: &[[usize; 4]; 2]) -> WoodSpiritGame {
+    let mut board: [Option<Cell>; 37] = [None; 37];
+
+    for p_id in 0..2 {
+        for cell_pos in players_trees[p_id] {
+            board[cell_pos] = Some(Cell {
+                player: p_id as u8,
+                tree: Tree::SMALL_TREE,
+                is_dormant: false,
+            })
+        }
+    }
+
+    let players = [Player {
+        move_: None,
+        sun: 4,
+        score: 0,
+        small_tree_count: 4,
+        medium_tree_count: 0,
+        large_tree_count: 0,
+        is_asleep: false,
+    }; 2];
+
+    WoodSpiritGame {
+        board: board,
+        players: players,
+        nutrient: 20,
+        day: 0,
+        turn_during_day: 0,
+        turn: 0,
+
+        active_player: 0,
+        active: true,
+        winners: None,
+    }
+}
+
 /* #endregion */
 
 impl Game for WoodSpiritGame {
@@ -163,14 +204,20 @@ impl Game for WoodSpiritGame {
         let mut board: [Option<Cell>; 37] = [None; 37];
 
         let possible_trees_per_richness: Vec<[usize; 3]> = vec![
-            [3, 0, 0],
-            [2, 1, 0],
-            [2, 0, 1],
-            [1, 2, 0],
-            [1, 1, 1],
-            [0, 3, 0],
-            [0, 2, 1],
-            [0, 1, 2],
+            [4, 0, 0],
+            [3, 1, 0],
+            [3, 0, 1],
+            [2, 2, 0],
+            [2, 1, 1],
+            [2, 0, 2],
+            [1, 3, 0],
+            [1, 2, 1],
+            [1, 1, 2],
+            [1, 0, 3],
+            [0, 4, 0],
+            [0, 3, 1],
+            [0, 2, 2],
+            [0, 1, 3],
         ];
 
         /* Select randomly where initial tree are placed */
@@ -218,17 +265,31 @@ impl Game for WoodSpiritGame {
             })
         }
 
+        /* Create players */
+        let mut players = [Player {
+            move_: None,
+            sun: 0,
+            score: 0,
+            small_tree_count: 4,
+            medium_tree_count: 0,
+            large_tree_count: 0,
+            is_asleep: false,
+        }; 2];
+
+        for p_id in 0..2 {
+            let player = &mut players[p_id];
+            player.sun += gained_sun_points(
+                player.small_tree_count,
+                player.medium_tree_count,
+                player.large_tree_count,
+            );
+        }
+
+        /* Output Game */
+
         WoodSpiritGame {
             board: board,
-            players: [Player {
-                move_: None,
-                sun: 0,
-                score: 0,
-                small_tree_count: 0,
-                medium_tree_count: 0,
-                large_tree_count: 0,
-                is_asleep: false,
-            }; 2],
+            players: players,
             nutrient: 20,
             day: 0,
             turn_during_day: 0,
@@ -376,10 +437,10 @@ impl Game for WoodSpiritGame {
                 if player.is_asleep == false {
                     match player.move_.unwrap() {
                         Move::GROW(cell_id) => {
-                            let cell = &mut self.board[cell_id as usize].unwrap();
+                            let cell = self.board[cell_id as usize].as_mut().unwrap();
                             match cell.tree {
                                 Tree::SMALL_TREE => {
-                                    player.sun -= 2 + player.medium_tree_count as u32;
+                                    player.sun -= 3 + player.medium_tree_count as u32;
                                     player.small_tree_count -= 1;
                                     player.medium_tree_count += 1;
                                     cell.tree = Tree::MEDIUM_TREE;
@@ -412,13 +473,15 @@ impl Game for WoodSpiritGame {
                         }
                     }
                 }
+
+                player.move_ = None;
             }
             self.nutrient -= completed_trees_count;
             self.turn_during_day += 1;
             self.turn += 1;
         }
 
-        /* (4) If both players are asleep update the day */
+        /* (4) If both players are asleep, update the day, else set the next active player */
         if self.players[0].is_asleep == true && self.players[1].is_asleep == true {
             self.day += 1;
             self.turn_during_day = 0;
@@ -426,16 +489,30 @@ impl Game for WoodSpiritGame {
             self.players[1].move_ = None;
             self.players[0].is_asleep = false;
             self.players[1].is_asleep = false;
+            self.active_player = 0;
 
+            // Reactivate all trees
             for cell in self.board.iter_mut() {
                 if let Some(c) = cell {
-                    self.players[c.player as usize].sun += match c.tree {
-                        Tree::SMALL_TREE => 1,
-                        Tree::MEDIUM_TREE => 2,
-                        Tree::LARGE_TREE => 3,
-                    };
                     c.is_dormant = false;
                 }
+            }
+
+            // let the players collect sun points
+            if self.day < 6 {
+                for p_id in 0..2 {
+                    let player = &mut self.players[p_id];
+                    player.sun += gained_sun_points(
+                        player.small_tree_count,
+                        player.medium_tree_count,
+                        player.large_tree_count,
+                    )
+                }
+            }
+        } else {
+            let next_player = (self.active_player + 1) % 2;
+            if self.players[next_player as usize].is_asleep == false {
+                self.active_player = next_player;
             }
         }
 
@@ -477,87 +554,91 @@ impl Game for WoodSpiritGame {
 
     fn get_state(&self) -> record::GameState {
         /* (1) Output Board */
-        fn board_pos_to_cell_id(r: usize, c: usize) -> usize {
+        fn board_pos_to_cell_id(r: usize, c: usize) -> Option<usize> {
             match (r, c) {
-                (3, 3) => 0,
-                (3, 4) => 1,
-                (2, 3) => 2,
-                (2, 2) => 3,
-                (3, 2) => 4,
-                (4, 2) => 5,
-                (4, 3) => 6,
-                (3, 5) => 7,
-                (2, 4) => 8,
-                (1, 3) => 9,
-                (1, 2) => 10,
-                (1, 1) => 11,
-                (2, 1) => 12,
-                (3, 1) => 13,
-                (4, 1) => 14,
-                (5, 1) => 15,
-                (5, 2) => 16,
-                (5, 3) => 17,
-                (4, 4) => 18,
-                (3, 6) => 19,
-                (2, 5) => 20,
-                (1, 4) => 21,
-                (0, 3) => 22,
-                (0, 2) => 23,
-                (0, 1) => 24,
-                (0, 0) => 25,
-                (1, 0) => 26,
-                (2, 0) => 27,
-                (3, 0) => 28,
-                (4, 0) => 29,
-                (5, 0) => 30,
-                (6, 0) => 31,
-                (6, 1) => 32,
-                (6, 2) => 33,
-                (6, 3) => 34,
-                (5, 4) => 35,
-                (4, 5) => 36,
-                _ => panic!(),
+                (3, 3) => Some(0),
+                (3, 4) => Some(1),
+                (2, 3) => Some(2),
+                (2, 2) => Some(3),
+                (3, 2) => Some(4),
+                (4, 2) => Some(5),
+                (4, 3) => Some(6),
+                (3, 5) => Some(7),
+                (2, 4) => Some(8),
+                (1, 3) => Some(9),
+                (1, 2) => Some(10),
+                (1, 1) => Some(11),
+                (2, 1) => Some(12),
+                (3, 1) => Some(13),
+                (4, 1) => Some(14),
+                (5, 1) => Some(15),
+                (5, 2) => Some(16),
+                (5, 3) => Some(17),
+                (4, 4) => Some(18),
+                (3, 6) => Some(19),
+                (2, 5) => Some(20),
+                (1, 4) => Some(21),
+                (0, 3) => Some(22),
+                (0, 2) => Some(23),
+                (0, 1) => Some(24),
+                (0, 0) => Some(25),
+                (1, 0) => Some(26),
+                (2, 0) => Some(27),
+                (3, 0) => Some(28),
+                (4, 0) => Some(29),
+                (5, 0) => Some(30),
+                (6, 0) => Some(31),
+                (6, 1) => Some(32),
+                (6, 2) => Some(33),
+                (6, 3) => Some(34),
+                (5, 4) => Some(35),
+                (4, 5) => Some(36),
+                _ => None,
             }
         }
 
         let mut board_repr: Vec<Vec<String>> = vec![vec!["".to_string(); 7]; 7];
         for r in 0..7 {
             for c in 0..7 {
-                let cell_pos = board_pos_to_cell_id(r, c);
-                //1st pos: richness
-                let richness: char = match get_cell_richness(cell_pos) {
-                    SoilRichness::LOW_QUALITY => '1',
-                    SoilRichness::MEDIUM_QUALITY => '2',
-                    SoilRichness::HIGH_QUALITY => '3',
-                };
-                //2nd pos: player
-                let player: char = match self.board[cell_pos] {
-                    Some(cell) => match cell.player {
-                        0 => '0',
-                        1 => '1',
-                        _ => panic!(),
-                    },
-                    None => '.',
-                };
+                board_repr[r][c] = match board_pos_to_cell_id(r, c) {
+                    Some(cell_pos) => {
+                        //1st pos: richness
+                        let richness: char = match get_cell_richness(cell_pos) {
+                            SoilRichness::LOW_QUALITY => '1',
+                            SoilRichness::MEDIUM_QUALITY => '2',
+                            SoilRichness::HIGH_QUALITY => '3',
+                        };
+                        //2nd pos: player
+                        let player: char = match self.board[cell_pos] {
+                            Some(cell) => match cell.player {
+                                0 => '0',
+                                1 => '1',
+                                _ => panic!(),
+                            },
+                            None => '.',
+                        };
 
-                //3nd pos: tree
-                let tree: char = match self.board[cell_pos] {
-                    Some(cell) => match cell.tree {
-                        Tree::SMALL_TREE => '🌱',
-                        Tree::MEDIUM_TREE => '🪴',
-                        Tree::LARGE_TREE => '🌳',
-                    },
-                    None => '.',
-                };
-                //4th pos: Tree is dormant
-                let dormant: char = match self.board[cell_pos] {
-                    Some(cell) => match cell.is_dormant {
-                        true => '😴',
-                        false => '🏃',
-                    },
-                    None => '.',
-                };
-                board_repr[r][c] = format!("{}{}{}{}", richness, player, tree, dormant);
+                        //3nd pos: tree
+                        let tree: char = match self.board[cell_pos] {
+                            Some(cell) => match cell.tree {
+                                Tree::SMALL_TREE => '🌱',
+                                Tree::MEDIUM_TREE => '🪴',
+                                Tree::LARGE_TREE => '🌳',
+                            },
+                            None => '.',
+                        };
+                        //4th pos: Tree is dormant
+                        let dormant: char = match self.board[cell_pos] {
+                            Some(cell) => match cell.is_dormant {
+                                true => '😴',
+                                false => '🏃',
+                            },
+                            None => '.',
+                        };
+                        format!("{}{}{}{}", richness, player, tree, dormant)
+                    }
+                    None => "....".to_string(),
+                }
             }
         }
 
@@ -584,7 +665,7 @@ impl Game for WoodSpiritGame {
                 player.is_asleep.to_string(),
             );
             state.insert(
-                format!("player[{}]: Movee", p),
+                format!("player[{}]: Move", p),
                 format!(
                     "{}",
                     match player.move_ {
@@ -612,7 +693,7 @@ impl Game for WoodSpiritGame {
     fn get_board_representation() -> Option<record::BoardRepresentation> {
         let mut classes: Vec<HashMap<char, record::CellClass>> = Vec::new();
 
-        // First position
+        // First position : Soil Richness
         let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
 
         class_styles.insert(
@@ -651,32 +732,40 @@ impl Game for WoodSpiritGame {
                 }),
             },
         );
+        class_styles.insert(
+            '.',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: None,
+            },
+        );
         classes.push(class_styles);
 
-        // Second position
+        // Second position : Player
         let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
         class_styles.insert(
             '0',
             record::CellClass {
                 text: None,
-                text_style: Some({
+                text_style: None,
+                cell_style: Some({
                     let mut css = HashMap::new();
-                    css.insert("text-shadow".to_string(), "#FF552B 1px 0 10px".to_string());
+                    css.insert("border".to_string(), "3px solid #FF552B".to_string());
                     css
                 }),
-                cell_style: None,
             },
         );
         class_styles.insert(
             '1',
             record::CellClass {
                 text: None,
-                text_style: Some({
+                text_style: None,
+                cell_style: Some({
                     let mut css = HashMap::new();
-                    css.insert("text-shadow".to_string(), "#2B9AFF 1px 0 10px".to_string());
+                    css.insert("border".to_string(), "3px solid #2B9AFF".to_string());
                     css
                 }),
-                cell_style: None,
             },
         );
         class_styles.insert(
@@ -719,7 +808,7 @@ impl Game for WoodSpiritGame {
         class_styles.insert(
             '.',
             record::CellClass {
-                text: None,
+                text: Some(' '.to_string()),
                 text_style: None,
                 cell_style: None,
             },
@@ -772,5 +861,209 @@ impl Game for WoodSpiritGame {
     fn end_game(&mut self, players_status: Vec<WinLossTie>) {
         self.active = false;
         self.winners = Some((players_status[0], players_status[1]));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_game_1() {
+        let mut game = init_with_params(&[[2, 22, 27, 29], [5, 20, 31, 36]]);
+
+        assert_eq!(game.turn, 0);
+        assert_eq!(game.day, 0);
+        assert_eq!(game.turn_during_day, 0);
+        assert_eq!(game.players[0].sun, 4);
+        assert_eq!(game.players[0].small_tree_count, 4);
+        assert_eq!(game.players[1].sun, 4);
+        assert_eq!(game.players[1].small_tree_count, 4);
+
+        game.play("GROW 29".to_string());
+        game.play("GROW 20".to_string());
+        assert_eq!(game.turn, 1);
+        assert_eq!(game.turn_during_day, 1);
+        assert_eq!(game.players[0].sun, 1);
+        assert_eq!(game.players[0].small_tree_count, 3);
+        assert_eq!(game.players[0].medium_tree_count, 1);
+        assert_eq!(game.players[1].sun, 1);
+        assert_eq!(game.players[1].small_tree_count, 3);
+        assert_eq!(game.players[1].medium_tree_count, 1);
+        assert_eq!(game.board[29].unwrap().tree, Tree::MEDIUM_TREE);
+        assert_eq!(game.board[29].unwrap().is_dormant, true);
+        assert_eq!(game.board[20].unwrap().tree, Tree::MEDIUM_TREE);
+        assert_eq!(game.board[20].unwrap().is_dormant, true);
+
+        game.play("WAIT".to_string());
+        game.play("WAIT".to_string());
+        assert_eq!(game.turn, 2);
+        assert_eq!(game.day, 1);
+        assert_eq!(game.turn_during_day, 0);
+        assert_eq!(game.players[0].sun, 6);
+        assert_eq!(game.players[1].sun, 6);
+        assert_eq!(game.board[29].unwrap().is_dormant, false);
+        assert_eq!(game.board[20].unwrap().is_dormant, false);
+
+        game.play("GROW 22".to_string());
+        game.play("GROW 31".to_string());
+        assert_eq!(game.turn, 3);
+        assert_eq!(game.turn_during_day, 1);
+        assert_eq!(game.players[0].sun, 2);
+        assert_eq!(game.players[0].small_tree_count, 2);
+        assert_eq!(game.players[0].medium_tree_count, 2);
+        assert_eq!(game.players[1].sun, 2);
+        assert_eq!(game.players[1].small_tree_count, 2);
+        assert_eq!(game.players[1].medium_tree_count, 2);
+        assert_eq!(game.board[22].unwrap().tree, Tree::MEDIUM_TREE);
+        assert_eq!(game.board[22].unwrap().is_dormant, true);
+        assert_eq!(game.board[31].unwrap().tree, Tree::MEDIUM_TREE);
+        assert_eq!(game.board[31].unwrap().is_dormant, true);
+
+        game.play("WAIT".to_string());
+        game.play("WAIT".to_string());
+        assert_eq!(game.turn, 4);
+        assert_eq!(game.day, 2);
+        assert_eq!(game.turn_during_day, 0);
+        assert_eq!(game.players[0].sun, 8);
+        assert_eq!(game.players[1].sun, 8);
+        assert_eq!(game.board[22].unwrap().is_dormant, false);
+        assert_eq!(game.board[31].unwrap().is_dormant, false);
+
+        game.play("GROW 27".to_string());
+        game.play("GROW 20".to_string());
+        assert_eq!(game.turn, 5);
+        assert_eq!(game.turn_during_day, 1);
+        assert_eq!(game.players[0].sun, 3);
+        assert_eq!(game.players[0].small_tree_count, 1);
+        assert_eq!(game.players[0].medium_tree_count, 3);
+        assert_eq!(game.players[1].sun, 1);
+        assert_eq!(game.players[1].small_tree_count, 2);
+        assert_eq!(game.players[1].medium_tree_count, 1);
+        assert_eq!(game.players[1].large_tree_count, 1);
+        assert_eq!(game.board[27].unwrap().tree, Tree::MEDIUM_TREE);
+        assert_eq!(game.board[27].unwrap().is_dormant, true);
+        assert_eq!(game.board[20].unwrap().tree, Tree::LARGE_TREE);
+        assert_eq!(game.board[20].unwrap().is_dormant, true);
+
+        game.play("WAIT".to_string());
+        game.play("WAIT".to_string());
+        assert_eq!(game.turn, 6);
+        assert_eq!(game.day, 3);
+        assert_eq!(game.turn_during_day, 0);
+        assert_eq!(game.players[0].sun, 10);
+        assert_eq!(game.players[1].sun, 8);
+        assert_eq!(game.board[27].unwrap().is_dormant, false);
+        assert_eq!(game.board[20].unwrap().is_dormant, false);
+
+        game.play("GROW 27".to_string());
+        game.play("COMPLETE 20".to_string());
+        assert_eq!(game.turn, 7);
+        assert_eq!(game.turn_during_day, 1);
+        assert_eq!(game.players[0].sun, 3);
+        assert_eq!(game.players[0].score, 0);
+        assert_eq!(game.players[0].small_tree_count, 1);
+        assert_eq!(game.players[0].medium_tree_count, 2);
+        assert_eq!(game.players[0].large_tree_count, 1);
+        assert_eq!(game.players[1].sun, 4);
+        assert_eq!(game.players[1].score, 20);
+        assert_eq!(game.players[1].small_tree_count, 2);
+        assert_eq!(game.players[1].medium_tree_count, 1);
+        assert_eq!(game.players[1].large_tree_count, 0);
+        assert_eq!(game.board[27].unwrap().tree, Tree::LARGE_TREE);
+        assert_eq!(game.board[27].unwrap().is_dormant, true);
+        assert_eq!(game.board[20].is_none(), true);
+
+        game.play("WAIT".to_string());
+        game.play("GROW 36".to_string());
+        assert_eq!(game.turn, 8);
+        assert_eq!(game.turn_during_day, 2);
+        assert_eq!(game.day, 3);
+        assert_eq!(game.players[0].is_asleep, true);
+        assert_eq!(game.players[0].sun, 3);
+        assert_eq!(game.players[0].score, 0);
+        assert_eq!(game.players[0].small_tree_count, 1);
+        assert_eq!(game.players[0].medium_tree_count, 2);
+        assert_eq!(game.players[0].large_tree_count, 1);
+        assert_eq!(game.players[1].is_asleep, false);
+        assert_eq!(game.players[1].sun, 0);
+        assert_eq!(game.players[1].score, 20);
+        assert_eq!(game.players[1].small_tree_count, 1);
+        assert_eq!(game.players[1].medium_tree_count, 2);
+        assert_eq!(game.players[1].large_tree_count, 0);
+        assert_eq!(game.board[36].unwrap().tree, Tree::MEDIUM_TREE);
+        assert_eq!(game.board[36].unwrap().is_dormant, true);
+        assert_eq!(game.active_player, 1);
+
+        game.play("WAIT".to_string());
+        assert_eq!(game.turn, 9);
+        assert_eq!(game.day, 4);
+        assert_eq!(game.turn_during_day, 0);
+        assert_eq!(game.players[0].sun, 11);
+        assert_eq!(game.players[1].sun, 5);
+        assert_eq!(game.board[27].unwrap().is_dormant, false);
+        assert_eq!(game.board[36].unwrap().is_dormant, false);
+        assert_eq!(game.active_player, 0);
+
+        game.play("GROW 2".to_string());
+        game.play("WAIT".to_string());
+        assert_eq!(game.turn, 10);
+        assert_eq!(game.turn_during_day, 1);
+        assert_eq!(game.day, 4);
+        assert_eq!(game.players[0].is_asleep, false);
+        assert_eq!(game.players[0].sun, 6);
+        assert_eq!(game.players[0].score, 0);
+        assert_eq!(game.players[0].small_tree_count, 0);
+        assert_eq!(game.players[0].medium_tree_count, 3);
+        assert_eq!(game.players[0].large_tree_count, 1);
+        assert_eq!(game.players[1].is_asleep, true);
+        assert_eq!(game.players[1].sun, 5);
+        assert_eq!(game.players[1].score, 20);
+        assert_eq!(game.players[1].small_tree_count, 1);
+        assert_eq!(game.players[1].medium_tree_count, 2);
+        assert_eq!(game.players[1].large_tree_count, 0);
+        assert_eq!(game.board[2].unwrap().tree, Tree::MEDIUM_TREE);
+        assert_eq!(game.board[2].unwrap().is_dormant, true);
+        assert_eq!(game.active_player, 0);
+
+        game.play("WAIT".to_string());
+        assert_eq!(game.turn, 11);
+        assert_eq!(game.day, 5);
+        assert_eq!(game.turn_during_day, 0);
+        assert_eq!(game.players[0].sun, 15);
+        assert_eq!(game.players[1].sun, 10);
+        assert_eq!(game.board[2].unwrap().is_dormant, false);
+        assert_eq!(game.active_player, 0);
+
+        game.play("GROW 22".to_string());
+        game.play("GROW 31".to_string());
+        assert_eq!(game.active, true);
+        assert_eq!(game.turn, 12);
+        assert_eq!(game.turn_during_day, 1);
+        assert_eq!(game.day, 5);
+        assert_eq!(game.players[0].is_asleep, false);
+        assert_eq!(game.players[0].sun, 7);
+        assert_eq!(game.players[0].score, 0);
+        assert_eq!(game.players[0].small_tree_count, 0);
+        assert_eq!(game.players[0].medium_tree_count, 2);
+        assert_eq!(game.players[0].large_tree_count, 2);
+        assert_eq!(game.players[1].is_asleep, false);
+        assert_eq!(game.players[1].sun, 3);
+        assert_eq!(game.players[1].score, 20);
+        assert_eq!(game.players[1].small_tree_count, 1);
+        assert_eq!(game.players[1].medium_tree_count, 1);
+        assert_eq!(game.players[1].large_tree_count, 1);
+        assert_eq!(game.board[22].unwrap().tree, Tree::LARGE_TREE);
+        assert_eq!(game.board[22].unwrap().is_dormant, true);
+        assert_eq!(game.board[31].unwrap().tree, Tree::LARGE_TREE);
+        assert_eq!(game.board[31].unwrap().is_dormant, true);
+        assert_eq!(game.active_player, 0);
+
+        game.play("WAIT".to_string());
+        game.play("WAIT".to_string());
+        assert_eq!(game.turn, 13);
+        assert_eq!(game.day, 6);
+        assert_eq!(game.active, false);
+        assert_eq!(game.winners.unwrap(), (WinLossTie::Loss, WinLossTie::Win));
     }
 }
