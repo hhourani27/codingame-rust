@@ -1,6 +1,7 @@
 use common::record;
 use common::{Game, Message, StackVector, WinLossTie};
 use rand::prelude::SliceRandom;
+use std::collections::HashMap;
 use std::fmt;
 
 const MAX_VALID_MOVES: usize = 4 + 4 + 1; //4 GROW + 4 COMPLETE + WAIT
@@ -361,30 +362,11 @@ impl Game for WoodSpiritGame {
                 }
             }
 
-            if !player_did_a_valid_move[0] && !player_did_a_valid_move[1] {
-                eprintln!(
-                    "[GAME] Player 0's move {} & Player 1's move {} are both invalid",
-                    &self.players[0].move_.unwrap().to_string(),
-                    &self.players[1].move_.unwrap().to_string()
-                );
-                self.active = false;
-                self.winners = Some((WinLossTie::Loss, WinLossTie::Loss));
-                return;
-            } else if player_did_a_valid_move[0] && !player_did_a_valid_move[1] {
-                eprintln!(
-                    "[GAME] Player 1's move {} is invalid",
-                    &self.players[1].move_.unwrap().to_string()
-                );
-                self.active = false;
-                self.winners = Some((WinLossTie::Win, WinLossTie::Loss));
-                return;
-            } else if !player_did_a_valid_move[0] && player_did_a_valid_move[1] {
-                eprintln!(
-                    "[GAME] Player 0's move {} is invalid",
-                    &self.players[0].move_.unwrap().to_string()
-                );
-                self.active = false;
-                self.winners = Some((WinLossTie::Loss, WinLossTie::Win));
+            if self.end_game_if_invalid_move(
+                &vec![self.players[0].move_, self.players[1].move_],
+                &player_did_a_valid_move,
+            ) == true
+            {
                 return;
             }
 
@@ -466,9 +448,9 @@ impl Game for WoodSpiritGame {
             let score1 = player1.score + player1.sun / 3;
 
             if score0 > score1 {
-                self.winners = Some((WinLossTie::Win, WinLossTie::Loss));
+                self.end_game(vec![WinLossTie::Win, WinLossTie::Loss]);
             } else if score0 < score1 {
-                self.winners = Some((WinLossTie::Loss, WinLossTie::Win));
+                self.end_game(vec![WinLossTie::Loss, WinLossTie::Win]);
             } else {
                 let tree_count0 =
                     player0.small_tree_count + player0.medium_tree_count + player0.large_tree_count;
@@ -476,26 +458,315 @@ impl Game for WoodSpiritGame {
                     player1.small_tree_count + player1.medium_tree_count + player1.large_tree_count;
 
                 if tree_count0 > tree_count1 {
-                    self.winners = Some((WinLossTie::Win, WinLossTie::Loss));
+                    self.end_game(vec![WinLossTie::Win, WinLossTie::Loss]);
                 } else if tree_count0 < tree_count1 {
-                    self.winners = Some((WinLossTie::Loss, WinLossTie::Win));
+                    self.end_game(vec![WinLossTie::Loss, WinLossTie::Win]);
                 } else {
-                    self.winners = Some((WinLossTie::Tie, WinLossTie::Tie));
+                    self.end_game(vec![WinLossTie::Tie, WinLossTie::Tie]);
                 }
             }
         }
     }
 
     fn winners(&self) -> Option<Vec<WinLossTie>> {
-        todo!()
+        match &self.winners {
+            Some(w) => Some(vec![w.0, w.1]),
+            None => None,
+        }
     }
 
     fn get_state(&self) -> record::GameState {
-        todo!()
+        /* (1) Output Board */
+        fn board_pos_to_cell_id(r: usize, c: usize) -> usize {
+            match (r, c) {
+                (3, 3) => 0,
+                (3, 4) => 1,
+                (2, 3) => 2,
+                (2, 2) => 3,
+                (3, 2) => 4,
+                (4, 2) => 5,
+                (4, 3) => 6,
+                (3, 5) => 7,
+                (2, 4) => 8,
+                (1, 3) => 9,
+                (1, 2) => 10,
+                (1, 1) => 11,
+                (2, 1) => 12,
+                (3, 1) => 13,
+                (4, 1) => 14,
+                (5, 1) => 15,
+                (5, 2) => 16,
+                (5, 3) => 17,
+                (4, 4) => 18,
+                (3, 6) => 19,
+                (2, 5) => 20,
+                (1, 4) => 21,
+                (0, 3) => 22,
+                (0, 2) => 23,
+                (0, 1) => 24,
+                (0, 0) => 25,
+                (1, 0) => 26,
+                (2, 0) => 27,
+                (3, 0) => 28,
+                (4, 0) => 29,
+                (5, 0) => 30,
+                (6, 0) => 31,
+                (6, 1) => 32,
+                (6, 2) => 33,
+                (6, 3) => 34,
+                (5, 4) => 35,
+                (4, 5) => 36,
+                _ => panic!(),
+            }
+        }
+
+        let mut board_repr: Vec<Vec<String>> = vec![vec!["".to_string(); 7]; 7];
+        for r in 0..7 {
+            for c in 0..7 {
+                let cell_pos = board_pos_to_cell_id(r, c);
+                //1st pos: richness
+                let richness: char = match get_cell_richness(cell_pos) {
+                    SoilRichness::LOW_QUALITY => '1',
+                    SoilRichness::MEDIUM_QUALITY => '2',
+                    SoilRichness::HIGH_QUALITY => '3',
+                };
+                //2nd pos: player
+                let player: char = match self.board[cell_pos] {
+                    Some(cell) => match cell.player {
+                        0 => '0',
+                        1 => '1',
+                        _ => panic!(),
+                    },
+                    None => '.',
+                };
+
+                //3nd pos: tree
+                let tree: char = match self.board[cell_pos] {
+                    Some(cell) => match cell.tree {
+                        Tree::SMALL_TREE => '🌱',
+                        Tree::MEDIUM_TREE => '🪴',
+                        Tree::LARGE_TREE => '🌳',
+                    },
+                    None => '.',
+                };
+                //4th pos: Tree is dormant
+                let dormant: char = match self.board[cell_pos] {
+                    Some(cell) => match cell.is_dormant {
+                        true => '😴',
+                        false => '🏃',
+                    },
+                    None => '.',
+                };
+                board_repr[r][c] = format!("{}{}{}{}", richness, player, tree, dormant);
+            }
+        }
+
+        /* Output State */
+        let mut state: HashMap<String, String> = HashMap::new();
+
+        state.insert("Nutrient".to_string(), self.nutrient.to_string());
+        state.insert("Day".to_string(), self.day.to_string());
+        state.insert(
+            "Turn during day".to_string(),
+            self.turn_during_day.to_string(),
+        );
+        state.insert("Turn".to_string(), self.turn.to_string());
+        state.insert("Active".to_string(), self.active.to_string());
+        state.insert("Active player".to_string(), self.active_player.to_string());
+
+        for p in 0..=1 {
+            let player = &self.players[p];
+
+            state.insert(format!("player[{}]: Score", p), player.score.to_string());
+            state.insert(format!("player[{}]: Sun", p), player.sun.to_string());
+            state.insert(
+                format!("player[{}]: Asleep", p),
+                player.is_asleep.to_string(),
+            );
+            state.insert(
+                format!("player[{}]: Movee", p),
+                format!(
+                    "{}",
+                    match player.move_ {
+                        Some(m) => format!("{}", m),
+                        None => "None".to_string(),
+                    }
+                ),
+            );
+            state.insert(
+                format!("player[{}]: Tree counts", p),
+                format!(
+                    "[{}🌱, {}🪴, {}🌳]",
+                    player.small_tree_count, player.medium_tree_count, player.large_tree_count
+                ),
+            );
+        }
+
+        /* Output GameState */
+        record::GameState {
+            board: Some(board_repr),
+            state,
+        }
     }
 
     fn get_board_representation() -> Option<record::BoardRepresentation> {
-        todo!()
+        let mut classes: Vec<HashMap<char, record::CellClass>> = Vec::new();
+
+        // First position
+        let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
+
+        class_styles.insert(
+            '1',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("backgroundColor".to_string(), "#CEB926".to_string());
+                    css
+                }),
+            },
+        );
+        class_styles.insert(
+            '2',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("backgroundColor".to_string(), "#D5EC05".to_string());
+                    css
+                }),
+            },
+        );
+        class_styles.insert(
+            '3',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("backgroundColor".to_string(), "#36DE01".to_string());
+                    css
+                }),
+            },
+        );
+        classes.push(class_styles);
+
+        // Second position
+        let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
+        class_styles.insert(
+            '0',
+            record::CellClass {
+                text: None,
+                text_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("text-shadow".to_string(), "#FF552B 1px 0 10px".to_string());
+                    css
+                }),
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '1',
+            record::CellClass {
+                text: None,
+                text_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("text-shadow".to_string(), "#2B9AFF 1px 0 10px".to_string());
+                    css
+                }),
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '.',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: None,
+            },
+        );
+
+        classes.push(class_styles);
+
+        // Third position
+        let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
+        class_styles.insert(
+            '🌱',
+            record::CellClass {
+                text: Some('🌱'.to_string()),
+                text_style: None,
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '🪴',
+            record::CellClass {
+                text: Some('🪴'.to_string()),
+                text_style: None,
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '🌳',
+            record::CellClass {
+                text: Some('🌳'.to_string()),
+                text_style: None,
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '.',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: None,
+            },
+        );
+        classes.push(class_styles);
+
+        // Fourth position
+        let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
+        class_styles.insert(
+            '😴',
+            record::CellClass {
+                text: None,
+                text_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert(
+                        "text-decoration".to_string(),
+                        "underline dotted gray;".to_string(),
+                    );
+                    css
+                }),
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '🏃',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '.',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: None,
+            },
+        );
+
+        classes.push(class_styles);
+
+        Some(record::BoardRepresentation {
+            rows: 7,
+            cols: 7,
+            classes,
+        })
     }
 
     fn end_game(&mut self, players_status: Vec<WinLossTie>) {

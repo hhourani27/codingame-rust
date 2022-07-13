@@ -1,6 +1,7 @@
 pub mod graph;
 pub mod simulator;
 use serde::Serialize;
+use std::fmt::Display;
 
 #[macro_export]
 macro_rules! assert_vec_eq {
@@ -105,9 +106,50 @@ pub trait Game {
     fn get_state(&self) -> record::GameState;
 
     fn get_board_representation() -> Option<record::BoardRepresentation>;
+
+    fn end_game(&mut self, players_status: Vec<WinLossTie>);
+
+    fn end_game_if_invalid_move<M: Display>(
+        &mut self,
+        players_moves: &[Option<M>],
+        did_players_do_valid_moves: &[bool],
+    ) -> bool {
+        if did_players_do_valid_moves.contains(&false) {
+            let mut players_status: Vec<WinLossTie> = Vec::new();
+            for p_valid_move in did_players_do_valid_moves.iter() {
+                players_status.push(match *p_valid_move {
+                    true => WinLossTie::Win,
+                    false => WinLossTie::Loss,
+                })
+            }
+
+            eprintln!(
+                "[GAME] The following players did invalid moves : {}",
+                players_status
+                    .iter()
+                    .enumerate()
+                    .zip(players_moves.iter())
+                    .filter(|((p_id, p_status), p_move)| **p_status == WinLossTie::Loss)
+                    .map(|((p_id, p_status), p_move)| format!(
+                        "({}, {})",
+                        p_id,
+                        match p_move {
+                            Some(m) => format!("{}", m),
+                            None => "None".to_string(),
+                        }
+                    ))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            );
+
+            self.end_game(players_status);
+            return true;
+        }
+        false
+    }
 }
 
-#[derive(Serialize, Debug, Clone, Copy)]
+#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WinLossTie {
     Win,
     Loss,
