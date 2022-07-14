@@ -18,8 +18,6 @@ pub fn play(
     msg_snd: Sender<(String, Option<std::collections::HashMap<String, String>>)>,
     params: Option<Vec<String>>,
 ) {
-    let p_id = params.unwrap()[0].parse::<u8>().unwrap();
-
     let mut input_line = String::new();
     input_line = msg_rcv.recv().unwrap();
     let number_of_cells = parse_input!(input_line, i32); // 37
