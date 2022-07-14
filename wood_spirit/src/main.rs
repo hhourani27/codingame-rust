@@ -3,6 +3,7 @@ use common::simulator::PlayerPlayFunction;
 use common::Game;
 use std::time::Instant;
 mod game_wood_spirit;
+mod player_beam_1;
 mod player_random;
 use game_wood_spirit::WoodSpiritGame;
 
@@ -16,12 +17,12 @@ fn run() {
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_random::play,
-            params: Some(vec!["0".to_string()]),
+            func: &player_beam_1::play,
+            params: None,
         },
         PlayerPlayFunction {
             func: &player_random::play,
-            params: Some(vec!["1".to_string()]),
+            params: None,
         },
     ];
 
