@@ -781,11 +781,17 @@ impl Game for WoodSpiritGame {
 
         // Third position
         let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
+        let mut text_style: HashMap<String, String> = HashMap::new();
+        text_style.insert(
+            "text-shadow".to_string(),
+            "-1px 0 white, 0 1px white, 1px 0 white, 0 -1px white".to_string(),
+        );
+
         class_styles.insert(
             '🌱',
             record::CellClass {
                 text: Some('🌱'.to_string()),
-                text_style: None,
+                text_style: Some(text_style.clone()),
                 cell_style: None,
             },
         );
@@ -793,7 +799,7 @@ impl Game for WoodSpiritGame {
             '🪴',
             record::CellClass {
                 text: Some('🪴'.to_string()),
-                text_style: None,
+                text_style: Some(text_style.clone()),
                 cell_style: None,
             },
         );
@@ -801,7 +807,7 @@ impl Game for WoodSpiritGame {
             '🌳',
             record::CellClass {
                 text: Some('🌳'.to_string()),
-                text_style: None,
+                text_style: Some(text_style.clone()),
                 cell_style: None,
             },
         );
@@ -849,8 +855,7 @@ impl Game for WoodSpiritGame {
         classes.push(class_styles);
 
         Some(record::BoardRepresentation {
-            rows: 7,
-            cols: 7,
+            board_type: record::BoardType::REGULAR_HEXAGONE_4_SIDES_FLAT_TOP,
             classes,
         })
     }

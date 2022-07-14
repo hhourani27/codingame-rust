@@ -168,9 +168,14 @@ pub mod record {
     }
 
     #[derive(Serialize)]
+    pub enum BoardType {
+        SQUARE(u32, u32),
+        REGULAR_HEXAGONE_4_SIDES_FLAT_TOP,
+    }
+
+    #[derive(Serialize)]
     pub struct BoardRepresentation {
-        pub rows: u32,
-        pub cols: u32,
+        pub board_type: BoardType,
         pub classes: Vec<HashMap<char, CellClass>>,
     }
 
