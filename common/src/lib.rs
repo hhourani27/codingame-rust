@@ -6,9 +6,25 @@ use std::fmt::Display;
 #[macro_export]
 macro_rules! assert_vec_eq {
     ($v1:expr, $v2:expr) => {
-        assert!($v1.iter().all(|m| $v2.contains(m)));
-        assert!($v2.iter().all(|m| $v1.contains(m)));
-        assert_eq!($v1.len(), $v2.len());
+        assert_eq!(
+            $v1.len(),
+            $v2.len(),
+            "LEFT & RIGHT do not have the same number of elements. LEFT: {:?}, RIGHT: {:?}",
+            &$v1,
+            &$v2,
+        );
+        assert!(
+            $v1.iter().all(|m| $v2.contains(m)),
+            "Some elements in LEFT are not present in RIGHT. LEFT: {:?}, RIGHT: {:?}",
+            &$v1,
+            &$v2,
+        );
+        assert!(
+            $v2.iter().all(|m| $v1.contains(m)),
+            "Some elements in RIGHT are not present in LEFT. LEFT: {:?}, RIGHT: {:?}",
+            &$v1,
+            &$v2,
+        );
     };
 }
 
