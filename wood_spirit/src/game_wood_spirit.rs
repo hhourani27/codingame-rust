@@ -1293,7 +1293,12 @@ impl Game for WoodSpiritGame {
                 text_style: None,
                 cell_style: Some({
                     let mut css = HashMap::new();
-                    css.insert("outline".to_string(), "solid 3px black".to_string());
+                    css.insert(
+                        "background-image".to_string(),
+                        "radial-gradient(black 1px, transparent 0)".to_string(),
+                    );
+                    css.insert("background-size".to_string(), "7% 7%".to_string());
+                    css.insert("background-repeat".to_string(), "repeat".to_string());
                     css
                 }),
             },
