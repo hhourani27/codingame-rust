@@ -17,7 +17,7 @@ fn run() {
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_beam_1::play,
+            func: &player_random::play,
             params: None,
         },
         PlayerPlayFunction {

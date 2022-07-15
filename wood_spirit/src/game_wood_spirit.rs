@@ -1,23 +1,24 @@
 use common::record;
-use common::{Game, Message, StackVector, WinLossTie};
+use common::{Game, Message, WinLossTie};
 use rand::prelude::SliceRandom;
-use std::collections::HashMap;
+use rand::{thread_rng, Rng};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
-
-const MAX_VALID_MOVES: usize = 4 + 4 + 1; //4 GROW + 4 COMPLETE + WAIT
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Move {
     GROW(u8),
     COMPLETE(u8),
+    SEED(u8, u8),
     WAIT,
 }
 
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Move::GROW(i) => write!(f, "GROW {}", i),
-            Move::COMPLETE(i) => write!(f, "COMPLETE {}", i),
+            Move::GROW(t) => write!(f, "GROW {}", t),
+            Move::COMPLETE(t) => write!(f, "COMPLETE {}", t),
+            Move::SEED(t, c) => write!(f, "SEED {} {}", t, c),
             Move::WAIT => write!(f, "WAIT"),
         }
     }
@@ -37,20 +38,31 @@ impl Move {
             return Move::GROW(msg[5..].parse().unwrap());
         } else if msg.starts_with("COMPLETE") {
             return Move::COMPLETE(msg[9..].parse().unwrap());
+        } else if msg.starts_with("SEED") {
+            let mut s_iter = msg.split_whitespace();
+            s_iter.next();
+            let tree_pos: u8 = s_iter.next().unwrap().parse().unwrap();
+            let seed_pos: u8 = s_iter.next().unwrap().parse().unwrap();
+            return Move::SEED(tree_pos, seed_pos);
         } else {
             panic!("Cannot parse move");
         }
     }
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Tree {
+    SEED,
     SMALL_TREE,
     MEDIUM_TREE,
     LARGE_TREE,
 }
 
+#[allow(non_camel_case_types)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum SoilRichness {
+    UNUSABLE,
     LOW_QUALITY,
     MEDIUM_QUALITY,
     HIGH_QUALITY,
@@ -70,6 +82,7 @@ struct Player {
     sun: u32,
     score: u32,
 
+    seed_count: u8,
     small_tree_count: u8,
     medium_tree_count: u8,
     large_tree_count: u8,
@@ -79,6 +92,7 @@ struct Player {
 
 pub struct WoodSpiritGame {
     board: [Option<Cell>; 37],
+    shadowed_cells: [u8; 37],
     players: [Player; 2],
 
     nutrient: u8,
@@ -90,81 +104,163 @@ pub struct WoodSpiritGame {
     active: bool,
     active_player: u8,
     winners: Option<(WinLossTie, WinLossTie)>,
+
+    //Cache
+    cache: Cache,
 }
 
 /* #region(collapsed) [Helper method] */
-fn get_cell_indices(richness: SoilRichness) -> Vec<usize> {
-    match richness {
-        SoilRichness::HIGH_QUALITY => (0..=6).collect::<Vec<usize>>(),
-        SoilRichness::MEDIUM_QUALITY => (7..=18).collect::<Vec<usize>>(),
-        SoilRichness::LOW_QUALITY => (19..=36).collect::<Vec<usize>>(),
-    }
-}
-
-fn get_cell_richness(cell: usize) -> SoilRichness {
-    match cell {
-        0..=6 => SoilRichness::HIGH_QUALITY,
-        7..=18 => SoilRichness::MEDIUM_QUALITY,
-        19..=36 => SoilRichness::LOW_QUALITY,
-        _ => panic!("Invalid cell index"),
-    }
-}
-
-fn gained_sun_points(small_tree_count: u8, medium_tree_count: u8, large_tree_count: u8) -> u32 {
-    small_tree_count as u32 + medium_tree_count as u32 * 2 + large_tree_count as u32 * 3
-}
-
-fn valid_moves(
-    board: [Option<Cell>; 37],
-    p_id: u8,
-    p_sun: u32,
-    p_medium_tree_count: u8,
-    p_large_tree_count: u8,
-    p_is_asleep: bool,
-) -> StackVector<Move, MAX_VALID_MOVES> {
-    let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector::new();
-
-    if p_is_asleep == true {
-        return valid_moves;
-    }
-
-    let p_cells = board
-        .iter()
-        .enumerate()
-        .filter(|(i, c)| c.is_some() && c.unwrap().player == p_id)
-        .map(|(i, c)| (i, c.unwrap()))
-        .collect::<Vec<(usize, Cell)>>();
-
-    for (i, cell) in p_cells.iter() {
-        match cell.tree {
-            Tree::SMALL_TREE => {
-                if p_sun >= 3 + p_medium_tree_count as u32 {
-                    valid_moves.add(Move::GROW(*i as u8));
-                }
-            }
-            Tree::MEDIUM_TREE => {
-                if p_sun >= 7 + p_large_tree_count as u32 {
-                    valid_moves.add(Move::GROW(*i as u8))
-                }
-            }
-            Tree::LARGE_TREE => {
-                if p_sun >= 4 {
-                    valid_moves.add(Move::COMPLETE(*i as u8))
+fn gained_sun_points(board: &[Option<Cell>; 37], shadowed_cells: &[u8; 37]) -> [u32; 2] {
+    let mut gained_sun_points_per_players = [0; 2];
+    for (cell_pos, cell) in board.iter().enumerate() {
+        if let Some(c) = cell {
+            if shadowed_cells[cell_pos] == 0 {
+                gained_sun_points_per_players[c.player as usize] += match c.tree {
+                    Tree::SEED => 0,
+                    Tree::SMALL_TREE => 1,
+                    Tree::MEDIUM_TREE => 2,
+                    Tree::LARGE_TREE => 3,
                 }
             }
         }
     }
 
-    valid_moves.add(Move::WAIT);
+    gained_sun_points_per_players
+}
 
+fn update_shadowed_cells_add_tree(
+    shadowed_cells: &mut [u8; 37],
+    tree_pos: usize,
+    tree: Tree,
+    day: u8,
+    cache: &Cache,
+) {
+    let shadowed_cells_by_tree = cache.get_shadowed_cells(tree_pos, tree, day as usize);
+    for csh in shadowed_cells_by_tree {
+        shadowed_cells[*csh] += 1;
+    }
+}
+
+fn update_shadowed_cells_remove_large_tree(
+    shadowed_cells: &mut [u8; 37],
+    tree_pos: usize,
+    day: u8,
+    cache: &Cache,
+) {
+    let shadowed_cells_by_tree = cache.get_shadowed_cells(tree_pos, Tree::LARGE_TREE, day as usize);
+    for csh in shadowed_cells_by_tree {
+        shadowed_cells[*csh] = shadowed_cells[*csh].saturating_sub(1);
+    }
+}
+
+fn get_initial_soil_richness() -> [SoilRichness; 37] {
+    let mut soil_richness: [SoilRichness; 37] = [SoilRichness::UNUSABLE; 37];
+
+    for i in 0..37 {
+        soil_richness[i] = match i {
+            0..=6 => SoilRichness::HIGH_QUALITY,
+            7..=18 => SoilRichness::MEDIUM_QUALITY,
+            19..=36 => SoilRichness::LOW_QUALITY,
+            _ => panic!("Invalid cell index"),
+        }
+    }
+
+    soil_richness
+}
+
+fn valid_moves(
+    board: &[Option<Cell>; 37],
+    p_id: u8,
+    p_sun: u32,
+    p_seed_count: u8,
+    p_small_tree_count: u8,
+    p_medium_tree_count: u8,
+    p_large_tree_count: u8,
+    p_is_asleep: bool,
+    cache: &Cache,
+) -> Vec<Move> {
+    let mut valid_moves: Vec<Move> = Vec::new();
+
+    if p_is_asleep == true {
+        return valid_moves;
+    }
+
+    for (cell_pos, cell) in board.iter().enumerate() {
+        match cell {
+            Some(c) => {
+                if c.player == p_id && c.is_dormant == false {
+                    match c.tree {
+                        Tree::SEED => {
+                            if p_sun >= 1 + p_small_tree_count as u32 {
+                                valid_moves.push(Move::GROW(cell_pos as u8));
+                            }
+                        }
+                        Tree::SMALL_TREE => {
+                            if p_sun >= 3 + p_medium_tree_count as u32 {
+                                valid_moves.push(Move::GROW(cell_pos as u8));
+                            }
+
+                            if p_sun >= p_seed_count as u32 {
+                                for neighbor in
+                                    cache.get_seedable_neighbors(cell_pos, Tree::SMALL_TREE)
+                                {
+                                    if board[*neighbor].is_none() {
+                                        valid_moves
+                                            .push(Move::SEED(cell_pos as u8, *neighbor as u8));
+                                    }
+                                }
+                            }
+                        }
+                        Tree::MEDIUM_TREE => {
+                            if p_sun >= 7 + p_large_tree_count as u32 {
+                                valid_moves.push(Move::GROW(cell_pos as u8))
+                            }
+
+                            if p_sun >= p_seed_count as u32 {
+                                for neighbor in
+                                    cache.get_seedable_neighbors(cell_pos, Tree::MEDIUM_TREE)
+                                {
+                                    if board[*neighbor].is_none() {
+                                        valid_moves
+                                            .push(Move::SEED(cell_pos as u8, *neighbor as u8));
+                                    }
+                                }
+                            }
+                        }
+                        Tree::LARGE_TREE => {
+                            if p_sun >= 4 {
+                                valid_moves.push(Move::COMPLETE(cell_pos as u8))
+                            }
+                            if p_sun >= p_seed_count as u32 {
+                                for neighbor in
+                                    cache.get_seedable_neighbors(cell_pos, Tree::LARGE_TREE)
+                                {
+                                    if board[*neighbor].is_none() {
+                                        valid_moves
+                                            .push(Move::SEED(cell_pos as u8, *neighbor as u8));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            None => {}
+        }
+    }
+    valid_moves.push(Move::WAIT);
     valid_moves
 }
 
-fn init_with_params(players_trees: &[[usize; 4]; 2]) -> WoodSpiritGame {
+fn init_with_params(
+    players_initial_trees: &[[usize; 4]; 2],
+    invalid_cells: &[usize],
+) -> WoodSpiritGame {
+    /* Initialize board & add small trees for each player */
     let mut board: [Option<Cell>; 37] = [None; 37];
 
     for p_id in 0..2 {
-        for cell_pos in players_trees[p_id] {
+        for cell_pos in players_initial_trees[p_id] {
             board[cell_pos] = Some(Cell {
                 player: p_id as u8,
                 tree: Tree::SMALL_TREE,
@@ -173,18 +269,41 @@ fn init_with_params(players_trees: &[[usize; 4]; 2]) -> WoodSpiritGame {
         }
     }
 
-    let players = [Player {
+    /* Initialize soil richness */
+    let mut soil_richness = get_initial_soil_richness();
+    for cell_pos in invalid_cells {
+        soil_richness[*cell_pos] = SoilRichness::UNUSABLE;
+    }
+
+    /* Update shadowed cells */
+    let cache = Cache::new(soil_richness);
+    let mut shadowed_cells: [u8; 37] = [0; 37];
+    for (tree_pos, cell) in board.iter().enumerate() {
+        if let Some(c) = cell {
+            update_shadowed_cells_add_tree(&mut shadowed_cells, tree_pos, c.tree, 0, &cache);
+        }
+    }
+
+    // Initialize players
+    let mut players = [Player {
         move_: None,
-        sun: 4,
+        sun: 0,
         score: 0,
+        seed_count: 0,
         small_tree_count: 4,
         medium_tree_count: 0,
         large_tree_count: 0,
         is_asleep: false,
     }; 2];
 
+    // Update player's gained sun points
+    let gained_sun_points = gained_sun_points(&board, &shadowed_cells);
+    players[0].sun += gained_sun_points[0];
+    players[1].sun += gained_sun_points[1];
+
     WoodSpiritGame {
         board: board,
+        shadowed_cells,
         players: players,
         nutrient: 20,
         day: 0,
@@ -194,75 +313,256 @@ fn init_with_params(players_trees: &[[usize; 4]; 2]) -> WoodSpiritGame {
         active_player: 0,
         active: true,
         winners: None,
+
+        cache,
     }
 }
 
 /* #endregion */
 
-impl Game for WoodSpiritGame {
-    fn new() -> Self {
-        let mut board: [Option<Cell>; 37] = [None; 37];
+/* #region(collapsed) [Cache] */
+struct Cache {
+    soil_richness: [SoilRichness; 37],
+    cell_neighbors: [[[Option<usize>; 3]; 6]; 37], //[cell_pos][direction][distance] => neighbor position
+    seedable_neighbors: Vec<Vec<Vec<usize>>>, //[[Vec<usize>;3];37] : [cell_pos][tree size] => vector of seedable positions
+    shadowed_cells: Vec<Vec<Vec<Vec<usize>>>>, // [Vec<usize>;3;6;37]: [cell_pos][day][tree size] => vector of shadowed cell positions
+}
 
-        let possible_trees_per_richness: Vec<[usize; 3]> = vec![
-            [4, 0, 0],
-            [3, 1, 0],
-            [3, 0, 1],
-            [2, 2, 0],
-            [2, 1, 1],
-            [2, 0, 2],
-            [1, 3, 0],
-            [1, 2, 1],
-            [1, 1, 2],
-            [1, 0, 3],
-            [0, 4, 0],
-            [0, 3, 1],
-            [0, 2, 2],
-            [0, 1, 3],
+impl Cache {
+    fn new(soil_richness: [SoilRichness; 37]) -> Self {
+        let cell_neighbors = Cache::init_cell_neighbors();
+        let seedable_neighbors = Cache::init_seedable_neighbors(&cell_neighbors, &soil_richness);
+        let shadowed_cells = Cache::init_shadowed_cells(&cell_neighbors);
+        Self {
+            soil_richness,
+            cell_neighbors,
+            seedable_neighbors,
+            shadowed_cells,
+        }
+    }
+
+    fn init_cell_neighbors() -> [[[Option<usize>; 3]; 6]; 37] {
+        let distance_1_neighbors: [[isize; 6]; 37] = [
+            [1, 2, 3, 4, 5, 6],
+            [7, 8, 2, 0, 6, 18],
+            [8, 9, 10, 3, 0, 1],
+            [2, 10, 11, 12, 4, 0],
+            [0, 3, 12, 13, 14, 5],
+            [6, 0, 4, 14, 15, 16],
+            [18, 1, 0, 5, 16, 17],
+            [19, 20, 8, 1, 18, 36],
+            [20, 21, 9, 2, 1, 7],
+            [21, 22, 23, 10, 2, 8],
+            [9, 23, 24, 11, 3, 2],
+            [10, 24, 25, 26, 12, 3],
+            [3, 11, 26, 27, 13, 4],
+            [4, 12, 27, 28, 29, 14],
+            [5, 4, 13, 29, 30, 15],
+            [16, 5, 14, 30, 31, 32],
+            [17, 6, 5, 15, 32, 33],
+            [35, 18, 6, 16, 33, 34],
+            [36, 7, 1, 6, 17, 35],
+            [-1, -1, 20, 7, 36, -1],
+            [-1, -1, 21, 8, 7, 19],
+            [-1, -1, 22, 9, 8, 20],
+            [-1, -1, -1, 23, 9, 21],
+            [22, -1, -1, 24, 10, 9],
+            [23, -1, -1, 25, 11, 10],
+            [24, -1, -1, -1, 26, 11],
+            [11, 25, -1, -1, 27, 12],
+            [12, 26, -1, -1, 28, 13],
+            [13, 27, -1, -1, -1, 29],
+            [14, 13, 28, -1, -1, 30],
+            [15, 14, 29, -1, -1, 31],
+            [32, 15, 30, -1, -1, -1],
+            [33, 16, 15, 31, -1, -1],
+            [34, 17, 16, 32, -1, -1],
+            [-1, 35, 17, 33, -1, -1],
+            [-1, 36, 18, 17, 34, -1],
+            [-1, 19, 7, 18, 35, -1],
         ];
 
-        /* Select randomly where initial tree are placed */
-        let rng = &mut rand::thread_rng();
+        let mut cell_neighbors: [[[Option<usize>; 3]; 6]; 37] = [[[None; 3]; 6]; 37];
 
-        let [low_quality_tree_count_per_player, medium_quality_tree_count_per_player, high_quality_tree_count_per_player] =
-            possible_trees_per_richness.choose(rng).cloned().unwrap();
-
-        let chosen_low_quality_cells = get_cell_indices(SoilRichness::LOW_QUALITY)
-            .choose_multiple(rng, low_quality_tree_count_per_player * 2)
-            .cloned()
-            .collect::<Vec<usize>>();
-
-        for (i, cell_pos) in chosen_low_quality_cells.into_iter().enumerate() {
-            board[cell_pos] = Some(Cell {
-                player: (i % 2) as u8,
-                tree: Tree::SMALL_TREE,
-                is_dormant: false,
-            })
+        for cell_pos in 0..37 {
+            for direction in 0..6 {
+                for distance in 0..3 {
+                    let mut neighbor_cell: Option<usize> = Some(cell_pos);
+                    for _ in 0..=distance {
+                        let neighbor_cell_temp =
+                            distance_1_neighbors[neighbor_cell.unwrap()][direction];
+                        if neighbor_cell_temp != -1 {
+                            neighbor_cell = Some(neighbor_cell_temp as usize);
+                        } else {
+                            neighbor_cell = None;
+                            break;
+                        }
+                    }
+                    cell_neighbors[cell_pos][direction][distance] = neighbor_cell;
+                }
+            }
         }
 
-        let chosen_medium_quality_cells = get_cell_indices(SoilRichness::MEDIUM_QUALITY)
-            .choose_multiple(rng, medium_quality_tree_count_per_player * 2)
-            .cloned()
-            .collect::<Vec<usize>>();
+        cell_neighbors
+    }
 
-        for (i, cell_pos) in chosen_medium_quality_cells.into_iter().enumerate() {
-            board[cell_pos] = Some(Cell {
-                player: (i % 2) as u8,
-                tree: Tree::SMALL_TREE,
-                is_dormant: false,
-            })
+    fn init_seedable_neighbors(
+        cell_neighbors: &[[[Option<usize>; 3]; 6]; 37],
+        soil_richness: &[SoilRichness; 37],
+    ) -> Vec<Vec<Vec<usize>>> {
+        let mut seedable_neighbors: Vec<Vec<Vec<usize>>> = vec![vec![vec![]; 3]; 37];
+
+        for cell_pos in 0..37 {
+            for tree_size in 1..=3 {
+                let mut result: HashSet<usize> = HashSet::new();
+
+                let mut visited: Vec<usize> = Vec::new();
+                visited.push(cell_pos);
+
+                for _ in 1..=tree_size {
+                    let mut visited_new: Vec<usize> = Vec::new();
+                    for c in visited {
+                        for direction in 0..6 {
+                            let neighbor = cell_neighbors[c][direction][0];
+                            if let Some(n) = neighbor {
+                                if soil_richness[n] != SoilRichness::UNUSABLE {
+                                    result.insert(n);
+                                }
+                                visited_new.push(n);
+                            }
+                        }
+                    }
+                    visited = visited_new;
+                }
+                result.remove(&cell_pos);
+                seedable_neighbors[cell_pos][tree_size - 1] =
+                    result.into_iter().collect::<Vec<usize>>();
+            }
         }
 
-        let chosen_high_quality_cells = get_cell_indices(SoilRichness::HIGH_QUALITY)
-            .choose_multiple(rng, high_quality_tree_count_per_player * 2)
-            .cloned()
-            .collect::<Vec<usize>>();
+        seedable_neighbors
+    }
 
-        for (i, cell_pos) in chosen_high_quality_cells.into_iter().enumerate() {
-            board[cell_pos] = Some(Cell {
-                player: (i % 2) as u8,
+    fn init_shadowed_cells(
+        cell_neighbors: &[[[Option<usize>; 3]; 6]; 37],
+    ) -> Vec<Vec<Vec<Vec<usize>>>> {
+        let mut shadowed_cells: Vec<Vec<Vec<Vec<usize>>>> = vec![vec![vec![vec![]; 3]; 6]; 37];
+        for cell_pos in 0..37 {
+            for day in 0..6 {
+                for tree_size in 1..=3 {
+                    for distance in 1..=tree_size {
+                        let shadowed_cell = cell_neighbors[cell_pos][day][distance - 1];
+                        if let Some(shadowed_cell_pos) = shadowed_cell {
+                            shadowed_cells[cell_pos][day][tree_size - 1].push(shadowed_cell_pos);
+                        }
+                    }
+                }
+            }
+        }
+
+        shadowed_cells
+    }
+
+    fn get_soil_richness(&self, cell_pos: usize) -> SoilRichness {
+        self.soil_richness[cell_pos]
+    }
+
+    fn get_neighbor(&self, cell_pos: usize, direction: usize, distance: usize) -> Option<usize> {
+        self.cell_neighbors[cell_pos][direction][distance - 1]
+    }
+
+    fn get_seedable_neighbors(&self, tree_pos: usize, tree: Tree) -> &[usize] {
+        let tree_size: usize = match tree {
+            Tree::SEED => 0,
+            Tree::SMALL_TREE => 1,
+            Tree::MEDIUM_TREE => 2,
+            Tree::LARGE_TREE => 3,
+        };
+
+        &self.seedable_neighbors[tree_pos][tree_size - 1]
+    }
+
+    fn get_shadowed_cells(&self, tree_pos: usize, tree: Tree, day: usize) -> &[usize] {
+        let tree_size: usize = match tree {
+            Tree::SEED => 0,
+            Tree::SMALL_TREE => 1,
+            Tree::MEDIUM_TREE => 2,
+            Tree::LARGE_TREE => 3,
+        };
+
+        // Here I assume that there will never be a seed
+        &self.shadowed_cells[tree_pos][day % 6][tree_size - 1]
+    }
+}
+
+/* #enddregion */
+
+impl Game for WoodSpiritGame {
+    fn new() -> Self {
+        fn generate_random_cell_pairs() -> Vec<(usize, usize)> {
+            let mut cell_pairs: Vec<(usize, usize)> = Vec::new();
+
+            let mut high_quality_cells: Vec<usize> = (0..=6).collect::<Vec<usize>>();
+            high_quality_cells.shuffle(&mut thread_rng());
+
+            for i in 0..3 {
+                cell_pairs.push((high_quality_cells[i * 2], high_quality_cells[i * 2 + 1]));
+            }
+
+            let mut medium_quality_cells: Vec<usize> = (7..=18).collect::<Vec<usize>>();
+            medium_quality_cells.shuffle(&mut thread_rng());
+
+            for i in 0..6 {
+                cell_pairs.push((medium_quality_cells[i * 2], medium_quality_cells[i * 2 + 1]));
+            }
+
+            let mut low_quality_cells: Vec<usize> = (19..=36).collect::<Vec<usize>>();
+            low_quality_cells.shuffle(&mut thread_rng());
+
+            for i in 0..9 {
+                cell_pairs.push((low_quality_cells[i * 2], low_quality_cells[i * 2 + 1]));
+            }
+
+            cell_pairs.shuffle(&mut thread_rng());
+            cell_pairs
+        }
+
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut soil_richness: [SoilRichness; 37] = get_initial_soil_richness();
+
+        /* Place the initial 2 small trees for each player*/
+        let mut cell_pairs = generate_random_cell_pairs();
+        for _ in 0..2 {
+            let cells = cell_pairs.pop().unwrap();
+            board[cells.0] = Some(Cell {
+                player: 0,
                 tree: Tree::SMALL_TREE,
                 is_dormant: false,
-            })
+            });
+
+            board[cells.1] = Some(Cell {
+                player: 1,
+                tree: Tree::SMALL_TREE,
+                is_dormant: false,
+            });
+        }
+
+        /* Chosse invalid cells */
+        let invalid_cells_count: usize = thread_rng().gen_range(0..=5);
+        for _ in 0..invalid_cells_count {
+            let cells = cell_pairs.pop().unwrap();
+            soil_richness[cells.0] = SoilRichness::UNUSABLE;
+            soil_richness[cells.1] = SoilRichness::UNUSABLE;
+        }
+
+        /* Update shadows */
+        let cache = Cache::new(soil_richness);
+
+        let mut shadowed_cells: [u8; 37] = [0; 37];
+        for (tree_pos, cell) in board.iter().enumerate() {
+            if let Some(c) = cell {
+                update_shadowed_cells_add_tree(&mut shadowed_cells, tree_pos, c.tree, 0, &cache);
+            }
         }
 
         /* Create players */
@@ -270,25 +570,22 @@ impl Game for WoodSpiritGame {
             move_: None,
             sun: 0,
             score: 0,
-            small_tree_count: 4,
+            seed_count: 0,
+            small_tree_count: 2,
             medium_tree_count: 0,
             large_tree_count: 0,
             is_asleep: false,
         }; 2];
 
-        for p_id in 0..2 {
-            let player = &mut players[p_id];
-            player.sun += gained_sun_points(
-                player.small_tree_count,
-                player.medium_tree_count,
-                player.large_tree_count,
-            );
-        }
+        let gained_sun_points = gained_sun_points(&board, &shadowed_cells);
+        players[0].sun += gained_sun_points[0];
+        players[1].sun += gained_sun_points[1];
 
         /* Output Game */
 
         WoodSpiritGame {
             board: board,
+            shadowed_cells,
             players: players,
             nutrient: 20,
             day: 0,
@@ -298,6 +595,8 @@ impl Game for WoodSpiritGame {
             active_player: 0,
             active: true,
             winners: None,
+
+            cache,
         }
     }
 
@@ -314,12 +613,37 @@ impl Game for WoodSpiritGame {
 
             for c in 0..37 {
                 out.push(format!(
-                    "{} {} 0 0 0 0 0 0",
+                    "{} {} {} {} {} {} {} {}",
                     c,
-                    match get_cell_richness(c) {
+                    match self.cache.get_soil_richness(c) {
+                        SoilRichness::UNUSABLE => 0,
                         SoilRichness::LOW_QUALITY => 1,
                         SoilRichness::MEDIUM_QUALITY => 2,
                         SoilRichness::HIGH_QUALITY => 3,
+                    },
+                    match self.cache.get_neighbor(c, 0, 1) {
+                        Some(n) => n as isize,
+                        None => -1,
+                    },
+                    match self.cache.get_neighbor(c, 1, 1) {
+                        Some(n) => n as isize,
+                        None => -1,
+                    },
+                    match self.cache.get_neighbor(c, 2, 1) {
+                        Some(n) => n as isize,
+                        None => -1,
+                    },
+                    match self.cache.get_neighbor(c, 3, 1) {
+                        Some(n) => n as isize,
+                        None => -1,
+                    },
+                    match self.cache.get_neighbor(c, 4, 1) {
+                        Some(n) => n as isize,
+                        None => -1,
+                    },
+                    match self.cache.get_neighbor(c, 5, 1) {
+                        Some(n) => n as isize,
+                        None => -1,
                     }
                 ))
             }
@@ -341,9 +665,11 @@ impl Game for WoodSpiritGame {
             }
         ));
 
-        let tree_count = active_player.small_tree_count
+        let tree_count = active_player.seed_count
+            + active_player.small_tree_count
             + active_player.medium_tree_count
             + active_player.large_tree_count
+            + other_player.seed_count
             + other_player.small_tree_count
             + other_player.medium_tree_count
             + other_player.large_tree_count;
@@ -355,6 +681,7 @@ impl Game for WoodSpiritGame {
                     "{} {} {} {}",
                     i,
                     match c.tree {
+                        Tree::SEED => 0,
                         Tree::SMALL_TREE => 1,
                         Tree::MEDIUM_TREE => 2,
                         Tree::LARGE_TREE => 3,
@@ -373,17 +700,20 @@ impl Game for WoodSpiritGame {
         }
 
         let valid_moves = valid_moves(
-            self.board,
+            &self.board,
             self.active_player,
             active_player.sun,
+            active_player.seed_count,
+            active_player.small_tree_count,
             active_player.medium_tree_count,
             active_player.large_tree_count,
             active_player.is_asleep,
+            &self.cache,
         );
 
         out.push(format!("{}", valid_moves.len()));
 
-        for vm in valid_moves.slice().iter() {
+        for vm in valid_moves.iter() {
             out.push(format!("{}", vm));
         }
 
@@ -411,14 +741,16 @@ impl Game for WoodSpiritGame {
             for (p_id, player) in self.players.iter().enumerate() {
                 if player.is_asleep == false {
                     player_did_a_valid_move[p_id] = valid_moves(
-                        self.board,
+                        &self.board,
                         p_id as u8,
                         player.sun,
+                        player.seed_count,
+                        player.small_tree_count,
                         player.medium_tree_count,
                         player.large_tree_count,
                         player.is_asleep,
+                        &self.cache,
                     )
-                    .slice()
                     .contains(&player.move_.unwrap());
                 }
             }
@@ -433,18 +765,55 @@ impl Game for WoodSpiritGame {
 
             /* (3.2) Update the state */
             let mut completed_trees_count = 0;
-            for player in self.players.iter_mut() {
+            let player_moves = [self.players[0].move_.clone(), self.players[1].move_.clone()];
+
+            for (p_id, player) in self.players.iter_mut().enumerate() {
                 if player.is_asleep == false {
                     match player.move_.unwrap() {
-                        Move::GROW(cell_id) => {
-                            let cell = self.board[cell_id as usize].as_mut().unwrap();
+                        Move::SEED(tree_pos, seed_pos) => {
+                            if let Some(Move::SEED(o_tree_pos, o_seed_pos)) =
+                                player_moves[(p_id + 1) % 2]
+                            {
+                                if seed_pos == o_seed_pos {
+                                    let tree_cell = self.board[tree_pos as usize].as_mut().unwrap();
+                                    tree_cell.is_dormant = true;
+                                }
+                            } else {
+                                player.sun -= player.seed_count as u32;
+                                player.seed_count += 1;
+                                let tree_cell = self.board[tree_pos as usize].as_mut().unwrap();
+                                tree_cell.is_dormant = true;
+                                self.board[seed_pos as usize] = Some(Cell {
+                                    player: p_id as u8,
+                                    tree: Tree::SEED,
+                                    is_dormant: true,
+                                });
+                            }
+                        }
+                        Move::GROW(cell_pos) => {
+                            let cell = self.board[cell_pos as usize].as_mut().unwrap();
                             match cell.tree {
+                                Tree::SEED => {
+                                    player.sun -= 1 + player.small_tree_count as u32;
+                                    player.seed_count -= 1;
+                                    player.small_tree_count += 1;
+                                    cell.tree = Tree::SMALL_TREE;
+                                    cell.is_dormant = true;
+                                }
                                 Tree::SMALL_TREE => {
                                     player.sun -= 3 + player.medium_tree_count as u32;
                                     player.small_tree_count -= 1;
                                     player.medium_tree_count += 1;
                                     cell.tree = Tree::MEDIUM_TREE;
                                     cell.is_dormant = true;
+
+                                    update_shadowed_cells_add_tree(
+                                        &mut self.shadowed_cells,
+                                        cell_pos as usize,
+                                        Tree::SMALL_TREE,
+                                        self.day,
+                                        &self.cache,
+                                    )
                                 }
                                 Tree::MEDIUM_TREE => {
                                     player.sun -= 7 + player.large_tree_count as u32;
@@ -452,21 +821,37 @@ impl Game for WoodSpiritGame {
                                     player.large_tree_count += 1;
                                     cell.tree = Tree::LARGE_TREE;
                                     cell.is_dormant = true;
+
+                                    update_shadowed_cells_add_tree(
+                                        &mut self.shadowed_cells,
+                                        cell_pos as usize,
+                                        Tree::MEDIUM_TREE,
+                                        self.day,
+                                        &self.cache,
+                                    )
                                 }
                                 _ => panic!("This code should not be reached"),
                             }
                         }
-                        Move::COMPLETE(cell_id) => {
+                        Move::COMPLETE(cell_pos) => {
                             player.sun -= 4;
                             player.score += self.nutrient as u32
-                                + match get_cell_richness(cell_id as usize) {
+                                + match self.cache.get_soil_richness(cell_pos as usize) {
+                                    SoilRichness::UNUSABLE => panic!(),
                                     SoilRichness::LOW_QUALITY => 0,
                                     SoilRichness::MEDIUM_QUALITY => 2,
                                     SoilRichness::HIGH_QUALITY => 4,
                                 };
                             player.large_tree_count -= 1;
-                            self.board[cell_id as usize] = None;
+                            self.board[cell_pos as usize] = None;
                             completed_trees_count += 1;
+
+                            update_shadowed_cells_remove_large_tree(
+                                &mut self.shadowed_cells,
+                                cell_pos as usize,
+                                self.day,
+                                &self.cache,
+                            )
                         }
                         Move::WAIT => {
                             player.is_asleep = true;
@@ -476,7 +861,7 @@ impl Game for WoodSpiritGame {
 
                 player.move_ = None;
             }
-            self.nutrient -= completed_trees_count;
+            self.nutrient = self.nutrient.saturating_sub(completed_trees_count);
             self.turn_during_day += 1;
             self.turn += 1;
         }
@@ -491,23 +876,28 @@ impl Game for WoodSpiritGame {
             self.players[1].is_asleep = false;
             self.active_player = 0;
 
-            // Reactivate all trees
-            for cell in self.board.iter_mut() {
+            self.shadowed_cells = [0; 37];
+            // Reactivate all trees and update shadows
+            for (cell_pos, cell) in self.board.iter_mut().enumerate() {
                 if let Some(c) = cell {
                     c.is_dormant = false;
+                    if c.tree != Tree::SEED {
+                        update_shadowed_cells_add_tree(
+                            &mut self.shadowed_cells,
+                            cell_pos,
+                            c.tree,
+                            self.day,
+                            &self.cache,
+                        );
+                    }
                 }
             }
 
             // let the players collect sun points
-            if self.day < 6 {
-                for p_id in 0..2 {
-                    let player = &mut self.players[p_id];
-                    player.sun += gained_sun_points(
-                        player.small_tree_count,
-                        player.medium_tree_count,
-                        player.large_tree_count,
-                    )
-                }
+            if self.day < 24 {
+                let gained_sun_points = gained_sun_points(&self.board, &self.shadowed_cells);
+                self.players[0].sun += gained_sun_points[0];
+                self.players[1].sun += gained_sun_points[1];
             }
         } else {
             let next_player = (self.active_player + 1) % 2;
@@ -517,7 +907,7 @@ impl Game for WoodSpiritGame {
         }
 
         /* (5) Check terminal conditions */
-        if self.day == 6 {
+        if self.day == 24 {
             let player0 = &self.players[0];
             let player1 = &self.players[1];
 
@@ -603,7 +993,8 @@ impl Game for WoodSpiritGame {
                 board_repr[r][c] = match board_pos_to_cell_id(r, c) {
                     Some(cell_pos) => {
                         //1st pos: richness
-                        let richness: char = match get_cell_richness(cell_pos) {
+                        let richness: char = match self.cache.get_soil_richness(cell_pos) {
+                            SoilRichness::UNUSABLE => '0',
                             SoilRichness::LOW_QUALITY => '1',
                             SoilRichness::MEDIUM_QUALITY => '2',
                             SoilRichness::HIGH_QUALITY => '3',
@@ -621,6 +1012,7 @@ impl Game for WoodSpiritGame {
                         //3nd pos: tree
                         let tree: char = match self.board[cell_pos] {
                             Some(cell) => match cell.tree {
+                                Tree::SEED => '🌰',
                                 Tree::SMALL_TREE => '🌱',
                                 Tree::MEDIUM_TREE => '🪴',
                                 Tree::LARGE_TREE => '🌳',
@@ -635,7 +1027,13 @@ impl Game for WoodSpiritGame {
                             },
                             None => '.',
                         };
-                        format!("{}{}{}{}", richness, player, tree, dormant)
+
+                        //5th pos : Cell is shadowed
+                        let shadowed: char = match self.shadowed_cells[cell_pos] {
+                            0 => '0',
+                            _ => '1',
+                        };
+                        format!("{}{}{}{}{}", richness, player, tree, dormant, shadowed)
                     }
                     None => "....".to_string(),
                 }
@@ -677,8 +1075,11 @@ impl Game for WoodSpiritGame {
             state.insert(
                 format!("player[{}]: Tree counts", p),
                 format!(
-                    "[{}🌱, {}🪴, {}🌳]",
-                    player.small_tree_count, player.medium_tree_count, player.large_tree_count
+                    "[{}🌰, {}🌱, {}🪴, {}🌳]",
+                    player.seed_count,
+                    player.small_tree_count,
+                    player.medium_tree_count,
+                    player.large_tree_count
                 ),
             );
         }
@@ -696,6 +1097,18 @@ impl Game for WoodSpiritGame {
         // First position : Soil Richness
         let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
 
+        class_styles.insert(
+            '0',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("backgroundColor".to_string(), "#999999".to_string());
+                    css
+                }),
+            },
+        );
         class_styles.insert(
             '1',
             record::CellClass {
@@ -788,6 +1201,15 @@ impl Game for WoodSpiritGame {
         );
 
         class_styles.insert(
+            '🌰',
+            record::CellClass {
+                text: Some('🌰'.to_string()),
+                text_style: Some(text_style.clone()),
+                cell_style: None,
+            },
+        );
+
+        class_styles.insert(
             '🌱',
             record::CellClass {
                 text: Some('🌱'.to_string()),
@@ -854,6 +1276,31 @@ impl Game for WoodSpiritGame {
 
         classes.push(class_styles);
 
+        // Fifth position : Shadowed
+        let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
+        class_styles.insert(
+            '0',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: None,
+            },
+        );
+        class_styles.insert(
+            '1',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert("outline".to_string(), "solid 3px black".to_string());
+                    css
+                }),
+            },
+        );
+
+        classes.push(class_styles);
+
         Some(record::BoardRepresentation {
             board_type: record::BoardType::REGULAR_HEXAGONE_4_SIDES_FLAT_TOP,
             classes,
@@ -868,204 +1315,183 @@ impl Game for WoodSpiritGame {
 
 #[cfg(test)]
 mod tests {
+    use common::assert_vec_eq;
+
     use super::*;
 
     #[test]
-    fn test_game_1() {
-        let mut game = init_with_params(&[[2, 22, 27, 29], [5, 20, 31, 36]]);
+    fn test_cache_get_neighbor() {
+        let cache = Cache::new([SoilRichness::UNUSABLE; 37]);
 
-        assert_eq!(game.turn, 0);
-        assert_eq!(game.day, 0);
-        assert_eq!(game.turn_during_day, 0);
-        assert_eq!(game.players[0].sun, 4);
-        assert_eq!(game.players[0].small_tree_count, 4);
-        assert_eq!(game.players[1].sun, 4);
-        assert_eq!(game.players[1].small_tree_count, 4);
+        assert_eq!(cache.get_neighbor(14, 1, 1), Some(4));
+        assert_eq!(cache.get_neighbor(9, 2, 1), Some(23));
+        assert_eq!(cache.get_neighbor(28, 3, 3), None);
+        assert_eq!(cache.get_neighbor(26, 5, 1), Some(12));
+        assert_eq!(cache.get_neighbor(17, 2, 3), Some(3));
+        assert_eq!(cache.get_neighbor(26, 1, 2), None);
+        assert_eq!(cache.get_neighbor(11, 5, 2), Some(0));
+        assert_eq!(cache.get_neighbor(35, 0, 2), None);
+        assert_eq!(cache.get_neighbor(5, 2, 1), Some(4));
+        assert_eq!(cache.get_neighbor(2, 4, 1), Some(0));
+        assert_eq!(cache.get_neighbor(34, 5, 1), None);
+        assert_eq!(cache.get_neighbor(36, 0, 1), None);
+        assert_eq!(cache.get_neighbor(14, 1, 3), Some(10));
+        assert_eq!(cache.get_neighbor(3, 1, 1), Some(10));
+        assert_eq!(cache.get_neighbor(15, 4, 3), None);
+        assert_eq!(cache.get_neighbor(36, 4, 3), None);
+        assert_eq!(cache.get_neighbor(3, 4, 2), Some(14));
+        assert_eq!(cache.get_neighbor(7, 2, 3), Some(23));
+        assert_eq!(cache.get_neighbor(27, 2, 1), None);
+        assert_eq!(cache.get_neighbor(9, 1, 2), None);
+    }
 
-        game.play("GROW 29".to_string());
-        game.play("GROW 20".to_string());
-        assert_eq!(game.turn, 1);
-        assert_eq!(game.turn_during_day, 1);
-        assert_eq!(game.players[0].sun, 1);
-        assert_eq!(game.players[0].small_tree_count, 3);
-        assert_eq!(game.players[0].medium_tree_count, 1);
-        assert_eq!(game.players[1].sun, 1);
-        assert_eq!(game.players[1].small_tree_count, 3);
-        assert_eq!(game.players[1].medium_tree_count, 1);
-        assert_eq!(game.board[29].unwrap().tree, Tree::MEDIUM_TREE);
-        assert_eq!(game.board[29].unwrap().is_dormant, true);
-        assert_eq!(game.board[20].unwrap().tree, Tree::MEDIUM_TREE);
-        assert_eq!(game.board[20].unwrap().is_dormant, true);
+    #[test]
+    fn test_cache_get_seedable_neighbors_1() {
+        let mut soil_richness = [SoilRichness::LOW_QUALITY; 37];
+        soil_richness[10] = SoilRichness::UNUSABLE;
+        soil_richness[16] = SoilRichness::UNUSABLE;
+        soil_richness[20] = SoilRichness::UNUSABLE;
+        soil_richness[21] = SoilRichness::UNUSABLE;
+        soil_richness[25] = SoilRichness::UNUSABLE;
+        soil_richness[26] = SoilRichness::UNUSABLE;
+        soil_richness[29] = SoilRichness::UNUSABLE;
+        soil_richness[30] = SoilRichness::UNUSABLE;
+        soil_richness[34] = SoilRichness::UNUSABLE;
+        soil_richness[35] = SoilRichness::UNUSABLE;
 
-        game.play("WAIT".to_string());
-        game.play("WAIT".to_string());
-        assert_eq!(game.turn, 2);
-        assert_eq!(game.day, 1);
-        assert_eq!(game.turn_during_day, 0);
-        assert_eq!(game.players[0].sun, 6);
-        assert_eq!(game.players[1].sun, 6);
-        assert_eq!(game.board[29].unwrap().is_dormant, false);
-        assert_eq!(game.board[20].unwrap().is_dormant, false);
+        let cache = Cache::new(soil_richness);
 
-        game.play("GROW 22".to_string());
-        game.play("GROW 31".to_string());
-        assert_eq!(game.turn, 3);
-        assert_eq!(game.turn_during_day, 1);
-        assert_eq!(game.players[0].sun, 2);
-        assert_eq!(game.players[0].small_tree_count, 2);
-        assert_eq!(game.players[0].medium_tree_count, 2);
-        assert_eq!(game.players[1].sun, 2);
-        assert_eq!(game.players[1].small_tree_count, 2);
-        assert_eq!(game.players[1].medium_tree_count, 2);
-        assert_eq!(game.board[22].unwrap().tree, Tree::MEDIUM_TREE);
-        assert_eq!(game.board[22].unwrap().is_dormant, true);
-        assert_eq!(game.board[31].unwrap().tree, Tree::MEDIUM_TREE);
-        assert_eq!(game.board[31].unwrap().is_dormant, true);
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(0, Tree::SMALL_TREE),
+            &[1, 2, 3, 4, 5, 6]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(0, Tree::MEDIUM_TREE),
+            &[1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 17, 18]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(0, Tree::LARGE_TREE),
+            &[
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 17, 18, 19, 22, 23, 24, 27, 28, 31,
+                32, 33, 36
+            ]
+        );
 
-        game.play("WAIT".to_string());
-        game.play("WAIT".to_string());
-        assert_eq!(game.turn, 4);
-        assert_eq!(game.day, 2);
-        assert_eq!(game.turn_during_day, 0);
-        assert_eq!(game.players[0].sun, 8);
-        assert_eq!(game.players[1].sun, 8);
-        assert_eq!(game.board[22].unwrap().is_dormant, false);
-        assert_eq!(game.board[31].unwrap().is_dormant, false);
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(1, Tree::SMALL_TREE),
+            &[7, 8, 2, 0, 6, 18]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(14, Tree::SMALL_TREE),
+            &[5, 4, 13, 15]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(15, Tree::MEDIUM_TREE),
+            &[5, 14, 31, 32, 17, 6, 0, 4, 13, 33]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(9, Tree::MEDIUM_TREE),
+            &[22, 23, 2, 8, 24, 11, 3, 0, 1, 7]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(4, Tree::MEDIUM_TREE),
+            &[0, 3, 12, 13, 14, 5, 1, 2, 11, 27, 28, 15, 6]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(24, Tree::LARGE_TREE),
+            &[11, 23, 22, 9, 2, 3, 12, 8, 1, 0, 4, 13, 27]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(14, Tree::SMALL_TREE),
+            &[15, 5, 4, 13]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(17, Tree::LARGE_TREE),
+            &[18, 6, 33, 36, 7, 1, 0, 5, 15, 32, 19, 8, 2, 3, 4, 14, 31]
+        );
+    }
 
-        game.play("GROW 27".to_string());
-        game.play("GROW 20".to_string());
-        assert_eq!(game.turn, 5);
-        assert_eq!(game.turn_during_day, 1);
-        assert_eq!(game.players[0].sun, 3);
-        assert_eq!(game.players[0].small_tree_count, 1);
-        assert_eq!(game.players[0].medium_tree_count, 3);
-        assert_eq!(game.players[1].sun, 1);
-        assert_eq!(game.players[1].small_tree_count, 2);
-        assert_eq!(game.players[1].medium_tree_count, 1);
-        assert_eq!(game.players[1].large_tree_count, 1);
-        assert_eq!(game.board[27].unwrap().tree, Tree::MEDIUM_TREE);
-        assert_eq!(game.board[27].unwrap().is_dormant, true);
-        assert_eq!(game.board[20].unwrap().tree, Tree::LARGE_TREE);
-        assert_eq!(game.board[20].unwrap().is_dormant, true);
+    #[test]
+    fn test_cache_get_seedable_neighbors_2() {
+        let mut soil_richness = [SoilRichness::LOW_QUALITY; 37];
+        soil_richness[3] = SoilRichness::UNUSABLE;
+        soil_richness[6] = SoilRichness::UNUSABLE;
+        soil_richness[7] = SoilRichness::UNUSABLE;
+        soil_richness[13] = SoilRichness::UNUSABLE;
+        soil_richness[20] = SoilRichness::UNUSABLE;
+        soil_richness[24] = SoilRichness::UNUSABLE;
+        soil_richness[27] = SoilRichness::UNUSABLE;
+        soil_richness[29] = SoilRichness::UNUSABLE;
+        soil_richness[33] = SoilRichness::UNUSABLE;
+        soil_richness[36] = SoilRichness::UNUSABLE;
 
-        game.play("WAIT".to_string());
-        game.play("WAIT".to_string());
-        assert_eq!(game.turn, 6);
-        assert_eq!(game.day, 3);
-        assert_eq!(game.turn_during_day, 0);
-        assert_eq!(game.players[0].sun, 10);
-        assert_eq!(game.players[1].sun, 8);
-        assert_eq!(game.board[27].unwrap().is_dormant, false);
-        assert_eq!(game.board[20].unwrap().is_dormant, false);
+        let cache = Cache::new(soil_richness);
 
-        game.play("GROW 27".to_string());
-        game.play("COMPLETE 20".to_string());
-        assert_eq!(game.turn, 7);
-        assert_eq!(game.turn_during_day, 1);
-        assert_eq!(game.players[0].sun, 3);
-        assert_eq!(game.players[0].score, 0);
-        assert_eq!(game.players[0].small_tree_count, 1);
-        assert_eq!(game.players[0].medium_tree_count, 2);
-        assert_eq!(game.players[0].large_tree_count, 1);
-        assert_eq!(game.players[1].sun, 4);
-        assert_eq!(game.players[1].score, 20);
-        assert_eq!(game.players[1].small_tree_count, 2);
-        assert_eq!(game.players[1].medium_tree_count, 1);
-        assert_eq!(game.players[1].large_tree_count, 0);
-        assert_eq!(game.board[27].unwrap().tree, Tree::LARGE_TREE);
-        assert_eq!(game.board[27].unwrap().is_dormant, true);
-        assert_eq!(game.board[20].is_none(), true);
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(28, Tree::SMALL_TREE),
+            &Vec::<usize>::new()
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(8, Tree::SMALL_TREE),
+            &[21, 9, 2, 1]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(21, Tree::LARGE_TREE),
+            &[22, 9, 8, 23, 10, 2, 1, 19, 11, 0, 18]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(4, Tree::MEDIUM_TREE),
+            &[0, 12, 14, 5, 1, 2, 10, 11, 26, 28, 30, 15, 16]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(19, Tree::LARGE_TREE),
+            &[21, 8, 1, 18, 35, 22, 9, 2, 0, 17, 34]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(32, Tree::LARGE_TREE),
+            &[16, 15, 31, 34, 17, 5, 14, 30, 35, 18, 1, 0, 4]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(10, Tree::MEDIUM_TREE),
+            &[9, 23, 11, 2, 21, 22, 25, 26, 12, 4, 0, 1, 8]
+        );
+        assert_vec_eq!(
+            cache.get_seedable_neighbors(16, Tree::LARGE_TREE),
+            &[5, 15, 32, 17, 35, 18, 1, 0, 4, 14, 30, 31, 34, 8, 2, 12]
+        );
+    }
 
-        game.play("WAIT".to_string());
-        game.play("GROW 36".to_string());
-        assert_eq!(game.turn, 8);
-        assert_eq!(game.turn_during_day, 2);
-        assert_eq!(game.day, 3);
-        assert_eq!(game.players[0].is_asleep, true);
-        assert_eq!(game.players[0].sun, 3);
-        assert_eq!(game.players[0].score, 0);
-        assert_eq!(game.players[0].small_tree_count, 1);
-        assert_eq!(game.players[0].medium_tree_count, 2);
-        assert_eq!(game.players[0].large_tree_count, 1);
-        assert_eq!(game.players[1].is_asleep, false);
-        assert_eq!(game.players[1].sun, 0);
-        assert_eq!(game.players[1].score, 20);
-        assert_eq!(game.players[1].small_tree_count, 1);
-        assert_eq!(game.players[1].medium_tree_count, 2);
-        assert_eq!(game.players[1].large_tree_count, 0);
-        assert_eq!(game.board[36].unwrap().tree, Tree::MEDIUM_TREE);
-        assert_eq!(game.board[36].unwrap().is_dormant, true);
-        assert_eq!(game.active_player, 1);
+    #[test]
+    fn test_cache_get_shadowed_cells() {
+        let cache = Cache::new([SoilRichness::UNUSABLE; 37]);
 
-        game.play("WAIT".to_string());
-        assert_eq!(game.turn, 9);
-        assert_eq!(game.day, 4);
-        assert_eq!(game.turn_during_day, 0);
-        assert_eq!(game.players[0].sun, 11);
-        assert_eq!(game.players[1].sun, 5);
-        assert_eq!(game.board[27].unwrap().is_dormant, false);
-        assert_eq!(game.board[36].unwrap().is_dormant, false);
-        assert_eq!(game.active_player, 0);
-
-        game.play("GROW 2".to_string());
-        game.play("WAIT".to_string());
-        assert_eq!(game.turn, 10);
-        assert_eq!(game.turn_during_day, 1);
-        assert_eq!(game.day, 4);
-        assert_eq!(game.players[0].is_asleep, false);
-        assert_eq!(game.players[0].sun, 6);
-        assert_eq!(game.players[0].score, 0);
-        assert_eq!(game.players[0].small_tree_count, 0);
-        assert_eq!(game.players[0].medium_tree_count, 3);
-        assert_eq!(game.players[0].large_tree_count, 1);
-        assert_eq!(game.players[1].is_asleep, true);
-        assert_eq!(game.players[1].sun, 5);
-        assert_eq!(game.players[1].score, 20);
-        assert_eq!(game.players[1].small_tree_count, 1);
-        assert_eq!(game.players[1].medium_tree_count, 2);
-        assert_eq!(game.players[1].large_tree_count, 0);
-        assert_eq!(game.board[2].unwrap().tree, Tree::MEDIUM_TREE);
-        assert_eq!(game.board[2].unwrap().is_dormant, true);
-        assert_eq!(game.active_player, 0);
-
-        game.play("WAIT".to_string());
-        assert_eq!(game.turn, 11);
-        assert_eq!(game.day, 5);
-        assert_eq!(game.turn_during_day, 0);
-        assert_eq!(game.players[0].sun, 15);
-        assert_eq!(game.players[1].sun, 10);
-        assert_eq!(game.board[2].unwrap().is_dormant, false);
-        assert_eq!(game.active_player, 0);
-
-        game.play("GROW 22".to_string());
-        game.play("GROW 31".to_string());
-        assert_eq!(game.active, true);
-        assert_eq!(game.turn, 12);
-        assert_eq!(game.turn_during_day, 1);
-        assert_eq!(game.day, 5);
-        assert_eq!(game.players[0].is_asleep, false);
-        assert_eq!(game.players[0].sun, 7);
-        assert_eq!(game.players[0].score, 0);
-        assert_eq!(game.players[0].small_tree_count, 0);
-        assert_eq!(game.players[0].medium_tree_count, 2);
-        assert_eq!(game.players[0].large_tree_count, 2);
-        assert_eq!(game.players[1].is_asleep, false);
-        assert_eq!(game.players[1].sun, 3);
-        assert_eq!(game.players[1].score, 20);
-        assert_eq!(game.players[1].small_tree_count, 1);
-        assert_eq!(game.players[1].medium_tree_count, 1);
-        assert_eq!(game.players[1].large_tree_count, 1);
-        assert_eq!(game.board[22].unwrap().tree, Tree::LARGE_TREE);
-        assert_eq!(game.board[22].unwrap().is_dormant, true);
-        assert_eq!(game.board[31].unwrap().tree, Tree::LARGE_TREE);
-        assert_eq!(game.board[31].unwrap().is_dormant, true);
-        assert_eq!(game.active_player, 0);
-
-        game.play("WAIT".to_string());
-        game.play("WAIT".to_string());
-        assert_eq!(game.turn, 13);
-        assert_eq!(game.day, 6);
-        assert_eq!(game.active, false);
-        assert_eq!(game.winners.unwrap(), (WinLossTie::Loss, WinLossTie::Win));
+        assert_vec_eq!(
+            cache.get_shadowed_cells(23, Tree::MEDIUM_TREE, 16),
+            &[10, 3]
+        );
+        assert_vec_eq!(cache.get_shadowed_cells(3, Tree::SMALL_TREE, 13), &[10]);
+        assert_vec_eq!(cache.get_shadowed_cells(10, Tree::SMALL_TREE, 3), &[11]);
+        assert_vec_eq!(cache.get_shadowed_cells(5, Tree::SMALL_TREE, 6), &[6]);
+        assert_vec_eq!(
+            cache.get_shadowed_cells(17, Tree::LARGE_TREE, 9),
+            &[16, 15, 30]
+        );
+        assert_vec_eq!(
+            cache.get_shadowed_cells(27, Tree::SMALL_TREE, 2),
+            &Vec::<usize>::new()
+        );
+        assert_vec_eq!(
+            cache.get_shadowed_cells(17, Tree::LARGE_TREE, 8),
+            &[6, 0, 3]
+        );
+        assert_vec_eq!(
+            cache.get_shadowed_cells(21, Tree::MEDIUM_TREE, 23),
+            &[20, 19]
+        );
+        assert_vec_eq!(
+            cache.get_shadowed_cells(24, Tree::LARGE_TREE, 7),
+            &Vec::<usize>::new()
+        );
+        assert_vec_eq!(cache.get_shadowed_cells(13, Tree::SMALL_TREE, 11), &[14]);
     }
 }
