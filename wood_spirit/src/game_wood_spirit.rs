@@ -5,7 +5,7 @@ use rand::{thread_rng, Rng};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Move {
     GROW(u8),
     COMPLETE(u8),
@@ -51,12 +51,12 @@ impl Move {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash, Debug)]
 enum Tree {
-    SEED,
-    SMALL_TREE,
-    MEDIUM_TREE,
-    LARGE_TREE,
+    SEED = 0,
+    SMALL_TREE = 1,
+    MEDIUM_TREE = 2,
+    LARGE_TREE = 3,
 }
 
 #[allow(non_camel_case_types)]
@@ -92,7 +92,6 @@ struct Player {
 
 pub struct WoodSpiritGame {
     board: [Option<Cell>; 37],
-    shadowed_cells: [u8; 37],
     players: [Player; 2],
 
     nutrient: u8,
@@ -110,11 +109,11 @@ pub struct WoodSpiritGame {
 }
 
 /* #region(collapsed) [Helper method] */
-fn gained_sun_points(board: &[Option<Cell>; 37], shadowed_cells: &[u8; 37]) -> [u32; 2] {
+fn gained_sun_points(board: &[Option<Cell>; 37], spookied_cells: &[bool; 37]) -> [u32; 2] {
     let mut gained_sun_points_per_players = [0; 2];
     for (cell_pos, cell) in board.iter().enumerate() {
         if let Some(c) = cell {
-            if shadowed_cells[cell_pos] == 0 {
+            if spookied_cells[cell_pos] == false {
                 gained_sun_points_per_players[c.player as usize] += match c.tree {
                     Tree::SEED => 0,
                     Tree::SMALL_TREE => 1,
@@ -128,29 +127,42 @@ fn gained_sun_points(board: &[Option<Cell>; 37], shadowed_cells: &[u8; 37]) -> [
     gained_sun_points_per_players
 }
 
-fn update_shadowed_cells_add_tree(
-    shadowed_cells: &mut [u8; 37],
-    tree_pos: usize,
-    tree: Tree,
-    day: u8,
-    cache: &Cache,
-) {
-    let shadowed_cells_by_tree = cache.get_shadowed_cells(tree_pos, tree, day as usize);
-    for csh in shadowed_cells_by_tree {
-        shadowed_cells[*csh] += 1;
+fn get_spookied_cells(board: &[Option<Cell>; 37], day: u8, cache: &Cache) -> [bool; 37] {
+    let mut spookied_cells = [false; 37];
+
+    for (cell_pos, cell) in board.iter().enumerate() {
+        if let Some(c) = cell {
+            if c.tree != Tree::SEED {
+                let shadowed_cells = cache.get_shadowed_cells(cell_pos, c.tree, day as usize);
+                for shadowed_cell_pos in shadowed_cells {
+                    if let Some(shadowed_cell) = &board[*shadowed_cell_pos] {
+                        if c.tree >= shadowed_cell.tree {
+                            spookied_cells[*shadowed_cell_pos] = true;
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    spookied_cells
 }
 
-fn update_shadowed_cells_remove_large_tree(
-    shadowed_cells: &mut [u8; 37],
-    tree_pos: usize,
-    day: u8,
-    cache: &Cache,
-) {
-    let shadowed_cells_by_tree = cache.get_shadowed_cells(tree_pos, Tree::LARGE_TREE, day as usize);
-    for csh in shadowed_cells_by_tree {
-        shadowed_cells[*csh] = shadowed_cells[*csh].saturating_sub(1);
+fn get_shadowed_cells(board: &[Option<Cell>; 37], day: u8, cache: &Cache) -> [bool; 37] {
+    let mut all_shadowed_cells = [false; 37];
+
+    for (cell_pos, cell) in board.iter().enumerate() {
+        if let Some(c) = cell {
+            if c.tree != Tree::SEED {
+                let shadowed_cells = cache.get_shadowed_cells(cell_pos, c.tree, day as usize);
+                for shadowed_cell_pos in shadowed_cells {
+                    all_shadowed_cells[*shadowed_cell_pos] = true;
+                }
+            }
+        }
     }
+
+    all_shadowed_cells
 }
 
 fn get_initial_soil_richness() -> [SoilRichness; 37] {
@@ -232,6 +244,8 @@ fn valid_moves(
                                 valid_moves.push(Move::COMPLETE(cell_pos as u8))
                             }
                             if p_sun >= p_seed_count as u32 {
+                                let neighbors =
+                                    cache.get_seedable_neighbors(cell_pos, Tree::LARGE_TREE);
                                 for neighbor in
                                     cache.get_seedable_neighbors(cell_pos, Tree::LARGE_TREE)
                                 {
@@ -275,14 +289,8 @@ fn init_with_params(
         soil_richness[*cell_pos] = SoilRichness::UNUSABLE;
     }
 
-    /* Update shadowed cells */
+    /* Creat cache */
     let cache = Cache::new(soil_richness);
-    let mut shadowed_cells: [u8; 37] = [0; 37];
-    for (tree_pos, cell) in board.iter().enumerate() {
-        if let Some(c) = cell {
-            update_shadowed_cells_add_tree(&mut shadowed_cells, tree_pos, c.tree, 0, &cache);
-        }
-    }
 
     // Initialize players
     let mut players = [Player {
@@ -297,13 +305,12 @@ fn init_with_params(
     }; 2];
 
     // Update player's gained sun points
-    let gained_sun_points = gained_sun_points(&board, &shadowed_cells);
+    let gained_sun_points = gained_sun_points(&board, &get_spookied_cells(&board, 0, &cache));
     players[0].sun += gained_sun_points[0];
     players[1].sun += gained_sun_points[1];
 
     WoodSpiritGame {
         board: board,
-        shadowed_cells,
         players: players,
         nutrient: 20,
         day: 0,
@@ -495,7 +502,7 @@ impl Cache {
     }
 }
 
-/* #enddregion */
+/* #endregion */
 
 impl Game for WoodSpiritGame {
     fn new() -> Self {
@@ -558,13 +565,6 @@ impl Game for WoodSpiritGame {
         /* Update shadows */
         let cache = Cache::new(soil_richness);
 
-        let mut shadowed_cells: [u8; 37] = [0; 37];
-        for (tree_pos, cell) in board.iter().enumerate() {
-            if let Some(c) = cell {
-                update_shadowed_cells_add_tree(&mut shadowed_cells, tree_pos, c.tree, 0, &cache);
-            }
-        }
-
         /* Create players */
         let mut players = [Player {
             move_: None,
@@ -577,7 +577,7 @@ impl Game for WoodSpiritGame {
             is_asleep: false,
         }; 2];
 
-        let gained_sun_points = gained_sun_points(&board, &shadowed_cells);
+        let gained_sun_points = gained_sun_points(&board, &get_spookied_cells(&board, 0, &cache));
         players[0].sun += gained_sun_points[0];
         players[1].sun += gained_sun_points[1];
 
@@ -585,7 +585,6 @@ impl Game for WoodSpiritGame {
 
         WoodSpiritGame {
             board: board,
-            shadowed_cells,
             players: players,
             nutrient: 20,
             day: 0,
@@ -806,14 +805,6 @@ impl Game for WoodSpiritGame {
                                     player.medium_tree_count += 1;
                                     cell.tree = Tree::MEDIUM_TREE;
                                     cell.is_dormant = true;
-
-                                    update_shadowed_cells_add_tree(
-                                        &mut self.shadowed_cells,
-                                        cell_pos as usize,
-                                        Tree::SMALL_TREE,
-                                        self.day,
-                                        &self.cache,
-                                    )
                                 }
                                 Tree::MEDIUM_TREE => {
                                     player.sun -= 7 + player.large_tree_count as u32;
@@ -821,14 +812,6 @@ impl Game for WoodSpiritGame {
                                     player.large_tree_count += 1;
                                     cell.tree = Tree::LARGE_TREE;
                                     cell.is_dormant = true;
-
-                                    update_shadowed_cells_add_tree(
-                                        &mut self.shadowed_cells,
-                                        cell_pos as usize,
-                                        Tree::MEDIUM_TREE,
-                                        self.day,
-                                        &self.cache,
-                                    )
                                 }
                                 _ => panic!("This code should not be reached"),
                             }
@@ -845,13 +828,6 @@ impl Game for WoodSpiritGame {
                             player.large_tree_count -= 1;
                             self.board[cell_pos as usize] = None;
                             completed_trees_count += 1;
-
-                            update_shadowed_cells_remove_large_tree(
-                                &mut self.shadowed_cells,
-                                cell_pos as usize,
-                                self.day,
-                                &self.cache,
-                            )
                         }
                         Move::WAIT => {
                             player.is_asleep = true;
@@ -876,26 +852,19 @@ impl Game for WoodSpiritGame {
             self.players[1].is_asleep = false;
             self.active_player = 0;
 
-            self.shadowed_cells = [0; 37];
             // Reactivate all trees and update shadows
             for (cell_pos, cell) in self.board.iter_mut().enumerate() {
                 if let Some(c) = cell {
                     c.is_dormant = false;
-                    if c.tree != Tree::SEED {
-                        update_shadowed_cells_add_tree(
-                            &mut self.shadowed_cells,
-                            cell_pos,
-                            c.tree,
-                            self.day,
-                            &self.cache,
-                        );
-                    }
                 }
             }
 
             // let the players collect sun points
             if self.day < 24 {
-                let gained_sun_points = gained_sun_points(&self.board, &self.shadowed_cells);
+                let gained_sun_points = gained_sun_points(
+                    &self.board,
+                    &get_spookied_cells(&self.board, self.day, &self.cache),
+                );
                 self.players[0].sun += gained_sun_points[0];
                 self.players[1].sun += gained_sun_points[1];
             }
@@ -1029,11 +998,20 @@ impl Game for WoodSpiritGame {
                         };
 
                         //5th pos : Cell is shadowed
-                        let shadowed: char = match self.shadowed_cells[cell_pos] {
-                            0 => '0',
-                            _ => '1',
+                        let shadowed_cells = get_shadowed_cells(&self.board, self.day, &self.cache);
+                        let spookied_cells = get_spookied_cells(&self.board, self.day, &self.cache);
+
+                        let shadow: char = {
+                            if spookied_cells[cell_pos] == true {
+                                '2' // Spookied cell
+                            } else if shadowed_cells[cell_pos] == true {
+                                '1' // Shadowed non-spookied cell
+                            } else {
+                                '0' // Non-shadowed cell
+                            }
                         };
-                        format!("{}{}{}{}{}", richness, player, tree, dormant, shadowed)
+
+                        format!("{}{}{}{}{}", richness, player, tree, dormant, shadow)
                     }
                     None => "....".to_string(),
                 }
@@ -1276,7 +1254,7 @@ impl Game for WoodSpiritGame {
 
         classes.push(class_styles);
 
-        // Fifth position : Shadowed
+        // Fifth position : Shadow
         let mut class_styles: HashMap<char, record::CellClass> = HashMap::new();
         class_styles.insert(
             '0',
@@ -1288,6 +1266,23 @@ impl Game for WoodSpiritGame {
         );
         class_styles.insert(
             '1',
+            record::CellClass {
+                text: None,
+                text_style: None,
+                cell_style: Some({
+                    let mut css = HashMap::new();
+                    css.insert(
+                        "background-image".to_string(),
+                        "radial-gradient(black 1px, transparent 0)".to_string(),
+                    );
+                    css.insert("background-size".to_string(), "20% 20%".to_string());
+                    css.insert("background-repeat".to_string(), "repeat".to_string());
+                    css
+                }),
+            },
+        );
+        class_styles.insert(
+            '2',
             record::CellClass {
                 text: None,
                 text_style: None,
@@ -1498,5 +1493,577 @@ mod tests {
             &Vec::<usize>::new()
         );
         assert_vec_eq!(cache.get_shadowed_cells(13, Tree::SMALL_TREE, 11), &[14]);
+    }
+
+    #[test]
+    fn test_get_shadowed_spookied_cells_1() {
+        let cache = Cache::new(get_initial_soil_richness());
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![19, 22, 10], vec![12, 28]]);
+        trees.insert(Tree::SMALL_TREE, vec![vec![0, 1], vec![4, 27, 31, 34]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![23], vec![32]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![2, 36], vec![5]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let expected_shadowed_cells = [10, 3, 28, 0, 14, 5, 6, 15, 35, 31, 34];
+        let mut expected_are_shadowed_cells = [false; 37];
+        for sc in expected_shadowed_cells {
+            expected_are_shadowed_cells[sc] = true;
+        }
+
+        let expected_spookied_cells = [28, 10, 0, 5, 31, 34];
+        let mut expected_are_spookied_cells = [false; 37];
+        for sc in expected_spookied_cells {
+            expected_are_spookied_cells[sc] = true;
+        }
+
+        let day = 10;
+
+        assert_eq!(
+            get_shadowed_cells(&board, day, &cache),
+            expected_are_shadowed_cells
+        );
+
+        assert_eq!(
+            get_spookied_cells(&board, day, &cache),
+            expected_are_spookied_cells
+        );
+    }
+
+    #[test]
+    fn test_get_shadowed_spookied_cells_2() {
+        let cache = Cache::new(get_initial_soil_richness());
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![14, 15], vec![25, 20, 19, 21]]);
+        trees.insert(
+            Tree::SMALL_TREE,
+            vec![vec![27, 28, 0, 30], vec![22, 23, 24, 29]],
+        );
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![31, 32], vec![36]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![2, 5, 33], vec![6, 34]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let expected_shadowed_cells = [10, 9, 21, 13, 1, 29, 6, 18, 30, 16, 17, 35, 31, 33, 34];
+        let mut expected_are_shadowed_cells = [false; 37];
+        for sc in expected_shadowed_cells {
+            expected_are_shadowed_cells[sc] = true;
+        }
+
+        let expected_spookied_cells = [21, 29, 30, 33, 34];
+        let mut expected_are_spookied_cells = [false; 37];
+        for sc in expected_spookied_cells {
+            expected_are_spookied_cells[sc] = true;
+        }
+
+        let day = 17;
+
+        assert_eq!(
+            get_shadowed_cells(&board, day, &cache),
+            expected_are_shadowed_cells
+        );
+
+        assert_eq!(
+            get_spookied_cells(&board, day, &cache),
+            expected_are_spookied_cells
+        );
+    }
+
+    #[test]
+    fn test_get_shadowed_spookied_cells_3() {
+        let cache = Cache::new(get_initial_soil_richness());
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![3, 4, 28, 29], vec![1, 6, 20, 35]]);
+        trees.insert(Tree::SMALL_TREE, vec![vec![30], vec![21]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![27], vec![36]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![], vec![]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let expected_shadowed_cells = [8, 28, 35, 34];
+        let mut expected_are_shadowed_cells = [false; 37];
+        for sc in expected_shadowed_cells {
+            expected_are_shadowed_cells[sc] = true;
+        }
+
+        let expected_spookied_cells = [28, 35];
+        let mut expected_are_spookied_cells = [false; 37];
+        for sc in expected_spookied_cells {
+            expected_are_spookied_cells[sc] = true;
+        }
+
+        let day = 4;
+
+        assert_eq!(
+            get_shadowed_cells(&board, day, &cache),
+            expected_are_shadowed_cells
+        );
+
+        assert_eq!(
+            get_spookied_cells(&board, day, &cache),
+            expected_are_spookied_cells
+        );
+    }
+
+    #[test]
+    fn test_get_shadowed_spookied_cells_4() {
+        let cache = Cache::new(get_initial_soil_richness());
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![18, 16], vec![0, 28]]);
+        trees.insert(Tree::SMALL_TREE, vec![vec![19], vec![26, 32]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![23], vec![30]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![21, 35, 36], vec![27, 31]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let expected_shadowed_cells = [24, 25, 9, 10, 11, 7, 18, 6, 5, 17, 16, 15, 31];
+        let mut expected_are_shadowed_cells = [false; 37];
+        for sc in expected_shadowed_cells {
+            expected_are_shadowed_cells[sc] = true;
+        }
+
+        let expected_spookied_cells = [18, 16];
+        let mut expected_are_spookied_cells = [false; 37];
+        for sc in expected_spookied_cells {
+            expected_are_spookied_cells[sc] = true;
+        }
+
+        let day = 21;
+
+        assert_eq!(
+            get_shadowed_cells(&board, day, &cache),
+            expected_are_shadowed_cells
+        );
+
+        assert_eq!(
+            get_spookied_cells(&board, day, &cache),
+            expected_are_spookied_cells
+        );
+    }
+
+    #[test]
+    fn test_get_shadowed_spookied_cells_5() {
+        let cache = Cache::new(get_initial_soil_richness());
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![14, 18, 36, 15], vec![24, 23, 27]]);
+        trees.insert(Tree::SMALL_TREE, vec![vec![30, 32, 33], vec![22]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![31, 34], vec![25, 4, 1]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![6], vec![3, 0]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let expected_shadowed_cells = [23, 22, 10, 9, 21, 3, 2, 8, 1, 14, 5, 36, 15, 16, 17, 35];
+        let mut expected_are_shadowed_cells = [false; 37];
+        for sc in expected_shadowed_cells {
+            expected_are_shadowed_cells[sc] = true;
+        }
+
+        let expected_spookied_cells = [23, 22, 1, 14, 36, 15];
+        let mut expected_are_spookied_cells = [false; 37];
+        for sc in expected_spookied_cells {
+            expected_are_spookied_cells[sc] = true;
+        }
+
+        let day = 13;
+
+        assert_eq!(
+            get_shadowed_cells(&board, day, &cache),
+            expected_are_shadowed_cells
+        );
+
+        assert_eq!(
+            get_spookied_cells(&board, day, &cache),
+            expected_are_spookied_cells
+        );
+    }
+
+    #[test]
+    fn test_gained_sun_points_1() {
+        let cache = Cache::new(get_initial_soil_richness());
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![24, 26, 0, 5, 29], vec![20, 33, 35]]);
+        trees.insert(Tree::SMALL_TREE, vec![vec![3, 4, 28], vec![34, 6, 2]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![25], vec![1, 19]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![], vec![]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let day = 8;
+        let spookied_cells = get_spookied_cells(&board, day, &cache);
+
+        assert_eq!(gained_sun_points(&board, &spookied_cells), [5, 6]);
+    }
+
+    #[test]
+    fn test_gained_sun_points_2() {
+        let cache = Cache::new(get_initial_soil_richness());
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![25, 23, 27], vec![18, 19]]);
+        trees.insert(Tree::SMALL_TREE, vec![vec![0], vec![5, 6, 20]]);
+        trees.insert(
+            Tree::MEDIUM_TREE,
+            vec![vec![24, 3, 2, 28, 29], vec![32, 33, 34]],
+        );
+        trees.insert(Tree::LARGE_TREE, vec![vec![31], vec![36]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let day = 13;
+        let spookied_cells = get_spookied_cells(&board, day, &cache);
+
+        assert_eq!(gained_sun_points(&board, &spookied_cells), [13, 10]);
+    }
+
+    #[test]
+    fn test_gained_sun_points_3() {
+        let cache = Cache::new(get_initial_soil_richness());
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![23, 24], vec![26, 28, 32]]);
+        trees.insert(Tree::SMALL_TREE, vec![vec![35], vec![27, 33]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![22, 36], vec![31]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![], vec![]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let day = 4;
+        let spookied_cells = get_spookied_cells(&board, day, &cache);
+
+        assert_eq!(gained_sun_points(&board, &spookied_cells), [4, 4]);
+    }
+
+    #[test]
+    fn test_valid_moves_1() {
+        let mut soil_sichness = get_initial_soil_richness();
+        soil_sichness[10] = SoilRichness::UNUSABLE;
+        soil_sichness[16] = SoilRichness::UNUSABLE;
+        let cache = Cache::new(soil_sichness);
+
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(Tree::SEED, vec![vec![], vec![]]);
+        trees.insert(Tree::SMALL_TREE, vec![vec![27, 32], vec![23, 36]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![], vec![]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![], vec![]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let p_id = 0;
+        let p_sun = 2;
+        let p_seed_count = 0;
+        let p_small_tree_count = 2;
+        let p_medium_tree_count = 0;
+        let p_large_tree_count = 0;
+        let p_is_asleep = false;
+
+        let expected_moves = [
+            Move::WAIT,
+            Move::SEED(27, 26),
+            Move::SEED(27, 13),
+            Move::SEED(32, 15),
+            Move::SEED(27, 12),
+            Move::SEED(32, 31),
+            Move::SEED(27, 28),
+            Move::SEED(32, 33),
+        ];
+
+        assert_vec_eq!(
+            valid_moves(
+                &board,
+                p_id,
+                p_sun,
+                p_seed_count,
+                p_small_tree_count,
+                p_medium_tree_count,
+                p_large_tree_count,
+                p_is_asleep,
+                &cache
+            ),
+            expected_moves
+        );
+    }
+
+    #[test]
+    fn test_valid_moves_2() {
+        let mut soil_sichness = get_initial_soil_richness();
+        soil_sichness[10] = SoilRichness::UNUSABLE;
+        soil_sichness[16] = SoilRichness::UNUSABLE;
+        let cache = Cache::new(soil_sichness);
+
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(
+            Tree::SEED,
+            vec![vec![24, 12, 29, 7], vec![3, 4, 35, 36, 32]],
+        );
+        trees.insert(Tree::SMALL_TREE, vec![vec![27, 28, 13, 23], vec![31]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![2, 20], vec![0, 6, 19]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![], vec![1, 5]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let p_id = 0;
+        let p_sun = 0;
+        let p_seed_count = 5;
+        let p_small_tree_count = 4;
+        let p_medium_tree_count = 2;
+        let p_large_tree_count = 0;
+        let p_is_asleep = false;
+
+        let expected_moves = [Move::WAIT];
+
+        assert_vec_eq!(
+            valid_moves(
+                &board,
+                p_id,
+                p_sun,
+                p_seed_count,
+                p_small_tree_count,
+                p_medium_tree_count,
+                p_large_tree_count,
+                p_is_asleep,
+                &cache
+            ),
+            expected_moves
+        );
+    }
+
+    #[test]
+    fn test_valid_moves_3() {
+        let mut soil_sichness = get_initial_soil_richness();
+        soil_sichness[24] = SoilRichness::UNUSABLE;
+        soil_sichness[33] = SoilRichness::UNUSABLE;
+        let cache = Cache::new(soil_sichness);
+
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(
+            Tree::SEED,
+            vec![vec![10, 14, 5, 15, 31, 35], vec![0, 2, 6, 7, 8, 36]],
+        );
+        trees.insert(Tree::SMALL_TREE, vec![vec![27, 11, 3], vec![26, 25, 1, 18]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![28, 13, 12, 29, 34], vec![19]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![], vec![17]]);
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: false,
+                    });
+                }
+            }
+        }
+
+        let p_id = 1;
+        let p_sun = 11;
+        let p_seed_count = 6;
+        let p_small_tree_count = 4;
+        let p_medium_tree_count = 1;
+        let p_large_tree_count = 1;
+        let p_is_asleep = false;
+
+        let expected_moves = [
+            Move::WAIT,
+            Move::COMPLETE(17),
+            Move::GROW(26),
+            Move::GROW(18),
+            Move::GROW(7),
+            Move::GROW(36),
+            Move::GROW(25),
+            Move::GROW(2),
+            Move::GROW(8),
+            Move::GROW(1),
+            Move::GROW(19),
+            Move::GROW(0),
+            Move::GROW(6),
+            Move::SEED(17, 4),
+            Move::SEED(17, 20),
+            Move::SEED(19, 20),
+            Move::SEED(19, 21),
+            Move::SEED(17, 32),
+            Move::SEED(17, 30),
+            Move::SEED(17, 16),
+        ];
+
+        assert_vec_eq!(
+            valid_moves(
+                &board,
+                p_id,
+                p_sun,
+                p_seed_count,
+                p_small_tree_count,
+                p_medium_tree_count,
+                p_large_tree_count,
+                p_is_asleep,
+                &cache
+            ),
+            expected_moves
+        );
     }
 }
