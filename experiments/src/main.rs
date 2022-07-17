@@ -13,25 +13,22 @@ struct Cell {
     is_dormant: bool,
 }
 
+enum Move {
+    GROW(u8),
+    COMPLETE(u8),
+    SEED(u8, u8),
+    WAIT,
+}
+
 fn main() {
-    let mut board: Vec<Option<Cell>> = Vec::new();
-    board.push(Some(Cell {
-        player: 0,
-        tree: Tree::SMALL_TREE,
-        is_dormant: false,
-    }));
-    board.push(None);
-    println!("{:?}", board);
+    let m1 = Move::SEED(0, 1);
+    let m2 = Move::SEED(10, 1);
 
-    let cell = &mut board[0].as_mut().unwrap();
-    cell.player = 1;
-    cell.tree = Tree::MEDIUM_TREE;
-    println!("{:?}", board);
-
-    for cell in board.iter_mut() {
-        if let Some(c) = cell {
-            c.is_dormant = true;
+    if let Move::SEED(tree_pos1, seed_pos1) = m1 {
+        println!("HERE 1");
+        match m2 {
+            Move::SEED(tree_pos1, seed_pos2) if seed_pos2 == seed_pos1 => println!("HERE 2"),
+            _ => println!("HERE 3"),
         }
     }
-    println!("{:?}", board);
 }

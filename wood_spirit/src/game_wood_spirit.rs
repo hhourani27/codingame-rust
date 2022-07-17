@@ -267,14 +267,14 @@ fn valid_moves(
 }
 
 fn init_with_params(
-    players_initial_trees: &[[usize; 4]; 2],
+    players_initial_small_trees: &[[usize; 2]; 2],
     invalid_cells: &[usize],
 ) -> WoodSpiritGame {
     /* Initialize board & add small trees for each player */
     let mut board: [Option<Cell>; 37] = [None; 37];
 
     for p_id in 0..2 {
-        for cell_pos in players_initial_trees[p_id] {
+        for cell_pos in players_initial_small_trees[p_id] {
             board[cell_pos] = Some(Cell {
                 player: p_id as u8,
                 tree: Tree::SMALL_TREE,
@@ -295,7 +295,7 @@ fn init_with_params(
     // Initialize players
     let mut players = [Player {
         move_: None,
-        sun: 0,
+        sun: 2,
         score: 0,
         seed_count: 0,
         small_tree_count: 4,
@@ -769,15 +769,12 @@ impl Game for WoodSpiritGame {
             for (p_id, player) in self.players.iter_mut().enumerate() {
                 if player.is_asleep == false {
                     match player.move_.unwrap() {
-                        Move::SEED(tree_pos, seed_pos) => {
-                            if let Some(Move::SEED(o_tree_pos, o_seed_pos)) =
-                                player_moves[(p_id + 1) % 2]
-                            {
-                                if seed_pos == o_seed_pos {
-                                    let tree_cell = self.board[tree_pos as usize].as_mut().unwrap();
-                                    tree_cell.is_dormant = true;
-                                }
-                            } else {
+                        Move::SEED(tree_pos, seed_pos) => match player_moves[(p_id + 1) % 2] {
+                            Some(Move::SEED(o_tree_pos, o_seed_pos)) if o_seed_pos == seed_pos => {
+                                let tree_cell = self.board[tree_pos as usize].as_mut().unwrap();
+                                tree_cell.is_dormant = true;
+                            }
+                            _ => {
                                 player.sun -= player.seed_count as u32;
                                 player.seed_count += 1;
                                 let tree_cell = self.board[tree_pos as usize].as_mut().unwrap();
@@ -788,7 +785,7 @@ impl Game for WoodSpiritGame {
                                     is_dormant: true,
                                 });
                             }
-                        }
+                        },
                         Move::GROW(cell_pos) => {
                             let cell = self.board[cell_pos as usize].as_mut().unwrap();
                             match cell.tree {
@@ -2065,5 +2062,97 @@ mod tests {
             ),
             expected_moves
         );
+    }
+
+    #[test]
+    fn test_valid_moves_4() {
+        let mut soil_sichness = get_initial_soil_richness();
+        let cache = Cache::new(soil_sichness);
+
+        let mut board: [Option<Cell>; 37] = [None; 37];
+        let mut trees: HashMap<Tree, Vec<Vec<usize>>> = HashMap::new();
+        trees.insert(
+            Tree::SEED,
+            vec![vec![1, 13, 19, 36, 17, 33, 34], vec![24, 10, 8, 28, 5, 31]],
+        );
+        trees.insert(Tree::SMALL_TREE, vec![vec![14, 7], vec![23, 22, 30]]);
+        trees.insert(Tree::MEDIUM_TREE, vec![vec![15, 32, 20], vec![29, 9, 21]]);
+        trees.insert(Tree::LARGE_TREE, vec![vec![], vec![]]);
+
+        let mut dormant: [bool; 37] = [false; 37];
+        dormant[9] = true;
+        dormant[13] = true;
+        dormant[14] = true;
+        dormant[30] = true;
+        dormant[15] = true;
+
+        for tree_size in [
+            Tree::SEED,
+            Tree::SMALL_TREE,
+            Tree::MEDIUM_TREE,
+            Tree::LARGE_TREE,
+        ] {
+            for p_id in 0..2 {
+                for tree_pos in trees.get(&tree_size).unwrap()[p_id].iter() {
+                    board[*tree_pos] = Some(Cell {
+                        player: p_id as u8,
+                        tree: tree_size,
+                        is_dormant: dormant[*tree_pos],
+                    });
+                }
+            }
+        }
+
+        let p_id = 0;
+        let p_sun = 4;
+        let p_seed_count = 7;
+        let p_small_tree_count = 2;
+        let p_medium_tree_count = 3;
+        let p_large_tree_count = 0;
+        let p_is_asleep = false;
+
+        let expected_moves = [
+            Move::WAIT,
+            Move::GROW(17),
+            Move::GROW(19),
+            Move::GROW(34),
+            Move::GROW(33),
+            Move::GROW(36),
+            Move::GROW(1),
+        ];
+
+        assert_vec_eq!(
+            valid_moves(
+                &board,
+                p_id,
+                p_sun,
+                p_seed_count,
+                p_small_tree_count,
+                p_medium_tree_count,
+                p_large_tree_count,
+                p_is_asleep,
+                &cache
+            ),
+            expected_moves
+        );
+    }
+
+    #[test]
+    fn test_cells_are_dormant_after_both_players_seed() {
+        let players_initial_small_trees = [[21, 32], [20, 35]];
+        let invalid_cells = [12, 8, 14, 16];
+
+        let mut game = init_with_params(&players_initial_small_trees, &invalid_cells);
+        game.play("SEED 21 9".to_string());
+        game.play("SEED 20 7".to_string());
+
+        assert_eq!(game.board[9].unwrap().tree, Tree::SEED);
+        assert_eq!(game.board[7].unwrap().tree, Tree::SEED);
+        assert_eq!(game.board[21].unwrap().is_dormant, true);
+        assert_eq!(game.board[9].unwrap().is_dormant, true);
+        assert_eq!(game.board[20].unwrap().is_dormant, true);
+        assert_eq!(game.board[7].unwrap().is_dormant, true);
+        assert_eq!(game.players[0].seed_count, 1);
+        assert_eq!(game.players[1].seed_count, 1);
     }
 }
