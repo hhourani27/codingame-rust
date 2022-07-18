@@ -5,7 +5,7 @@ use rand::{thread_rng, Rng};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-pub const MAX_VALID_MOVES: usize = 80; // Arbitrary value. TODO: compute the correct value
+pub const MAX_VALID_MOVES: usize = 150; // Arbitrary value. TODO: compute the correct value
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Move {

@@ -91,7 +91,7 @@ mod game {
     use std::collections::HashSet;
     use std::fmt;
 
-    pub const MAX_VALID_MOVES: usize = 80; // Arbitrary value. TODO: compute the correct value
+    pub const MAX_VALID_MOVES: usize = 150; // Arbitrary value. TODO: compute the correct value
 
     pub type GameScore = [f32; 4];
 

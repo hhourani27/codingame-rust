@@ -91,7 +91,7 @@ mod game {
     use std::collections::HashSet;
     use std::fmt;
 
-    pub const MAX_VALID_MOVES: usize = 80; // Arbitrary value. TODO: compute the correct value
+    pub const MAX_VALID_MOVES: usize = 150; // Arbitrary value. TODO: compute the correct value
 
     pub type GameScore = [f32; 4];
 
@@ -145,14 +145,14 @@ mod game {
         HIGH_QUALITY,
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Debug)]
     pub struct Cell {
         pub player: u8,
         pub tree: Tree,
         pub is_dormant: bool,
     }
 
-    #[derive(Clone, Copy, Default)]
+    #[derive(Clone, Copy, Default, Debug)]
     pub struct Player {
         pub move_: Option<Move>,
 
@@ -167,7 +167,7 @@ mod game {
         pub is_asleep: bool,
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct State {
         pub board: [Option<Cell>; 37],
         pub players: [Player; 2],
@@ -209,7 +209,7 @@ mod game {
                                     valid_moves.push(Move::GROW(cell_pos as u8));
                                 }
 
-                                if p_sun >= p_seed_count as u32 {
+                                if p_seed_count == 0 && state.day <= 21 {
                                     for neighbor in
                                         cache.get_seedable_neighbors(cell_pos, Tree::SMALL_TREE)
                                     {
@@ -225,7 +225,7 @@ mod game {
                                     valid_moves.push(Move::GROW(cell_pos as u8))
                                 }
 
-                                if p_sun >= p_seed_count as u32 {
+                                if p_seed_count == 0 && state.day <= 21 {
                                     for neighbor in
                                         cache.get_seedable_neighbors(cell_pos, Tree::MEDIUM_TREE)
                                     {
@@ -237,10 +237,10 @@ mod game {
                                 }
                             }
                             Tree::LARGE_TREE => {
-                                if p_sun >= 4 {
+                                if p_sun >= 4 && state.day >= 11 {
                                     valid_moves.push(Move::COMPLETE(cell_pos as u8))
                                 }
-                                if p_sun >= p_seed_count as u32 {
+                                if p_seed_count == 0 && state.day <= 21 {
                                     for neighbor in
                                         cache.get_seedable_neighbors(cell_pos, Tree::LARGE_TREE)
                                     {

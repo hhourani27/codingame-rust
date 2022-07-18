@@ -12,7 +12,7 @@ fn run() {
     const STATS: bool = true;
     const RECORD: bool = false;
     const RUN_PERMUT: bool = true;
-    const RUNS: u32 = 5;
+    const RUNS: u32 = 10;
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/wood_spirit/output";
 

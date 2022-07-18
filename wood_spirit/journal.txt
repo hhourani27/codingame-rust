@@ -5,3 +5,12 @@ Player 2
     on 1st turn, I was expanding 2300 nodes and running 1200 simulations (on local)
     on 1st turn, I was expanding 2300 nodes and running 1200 simulations (on codingame)
     Rank : Bronze league 3rd
+
+Player 3
+  Strategy 
+    MCTS with Pruning (inspired by https://forum.codingame.com/t/spring-challenge-2021-feedbacks-strategies/190849/4)
+      Only SEED if there's 0 seeds
+      Do not SEED after the 21st day
+      Only COMPLETE after the 11th day
+  Rank : Gold 103rd
+

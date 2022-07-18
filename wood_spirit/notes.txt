@@ -1,3 +1,8 @@
 Max # of valid moves
   To calculate precisely
-  For now, it seems that it's > 70
+  For now, it seems that it's > 80
+
+
+============================
+Pruning strategies I tried
+- do not output a WAIT move on the first turn of the day
