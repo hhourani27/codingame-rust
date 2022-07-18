@@ -1,0 +1,3 @@
+Max # of valid moves
+  To calculate precisely
+  For now, it seems that it's > 70

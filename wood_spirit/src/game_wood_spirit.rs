@@ -1,9 +1,11 @@
 use common::record;
-use common::{Game, Message, WinLossTie};
+use common::{Game, Message, StackVector, WinLossTie};
 use rand::prelude::SliceRandom;
 use rand::{thread_rng, Rng};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+
+pub const MAX_VALID_MOVES: usize = 80; // Arbitrary value. TODO: compute the correct value
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Move {
@@ -188,14 +190,9 @@ fn valid_moves(
     p_small_tree_count: u8,
     p_medium_tree_count: u8,
     p_large_tree_count: u8,
-    p_is_asleep: bool,
     cache: &Cache,
-) -> Vec<Move> {
-    let mut valid_moves: Vec<Move> = Vec::new();
-
-    if p_is_asleep == true {
-        return valid_moves;
-    }
+) -> StackVector<Move, MAX_VALID_MOVES> {
+    let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector::new();
 
     for (cell_pos, cell) in board.iter().enumerate() {
         match cell {
@@ -706,13 +703,12 @@ impl Game for WoodSpiritGame {
             active_player.small_tree_count,
             active_player.medium_tree_count,
             active_player.large_tree_count,
-            active_player.is_asleep,
             &self.cache,
         );
 
         out.push(format!("{}", valid_moves.len()));
 
-        for vm in valid_moves.iter() {
+        for vm in valid_moves.slice().iter() {
             out.push(format!("{}", vm));
         }
 
@@ -747,9 +743,9 @@ impl Game for WoodSpiritGame {
                         player.small_tree_count,
                         player.medium_tree_count,
                         player.large_tree_count,
-                        player.is_asleep,
                         &self.cache,
                     )
+                    .slice()
                     .contains(&player.move_.unwrap());
                 }
             }
@@ -1904,7 +1900,6 @@ mod tests {
         let p_small_tree_count = 2;
         let p_medium_tree_count = 0;
         let p_large_tree_count = 0;
-        let p_is_asleep = false;
 
         let expected_moves = [
             Move::WAIT,
@@ -1926,9 +1921,9 @@ mod tests {
                 p_small_tree_count,
                 p_medium_tree_count,
                 p_large_tree_count,
-                p_is_asleep,
                 &cache
-            ),
+            )
+            .slice(),
             expected_moves
         );
     }
@@ -1973,7 +1968,6 @@ mod tests {
         let p_small_tree_count = 4;
         let p_medium_tree_count = 2;
         let p_large_tree_count = 0;
-        let p_is_asleep = false;
 
         let expected_moves = [Move::WAIT];
 
@@ -1986,9 +1980,9 @@ mod tests {
                 p_small_tree_count,
                 p_medium_tree_count,
                 p_large_tree_count,
-                p_is_asleep,
                 &cache
-            ),
+            )
+            .slice(),
             expected_moves
         );
     }
@@ -2033,7 +2027,6 @@ mod tests {
         let p_small_tree_count = 4;
         let p_medium_tree_count = 1;
         let p_large_tree_count = 1;
-        let p_is_asleep = false;
 
         let expected_moves = [
             Move::WAIT,
@@ -2067,9 +2060,9 @@ mod tests {
                 p_small_tree_count,
                 p_medium_tree_count,
                 p_large_tree_count,
-                p_is_asleep,
                 &cache
-            ),
+            )
+            .slice(),
             expected_moves
         );
     }
@@ -2119,7 +2112,6 @@ mod tests {
         let p_small_tree_count = 2;
         let p_medium_tree_count = 3;
         let p_large_tree_count = 0;
-        let p_is_asleep = false;
 
         let expected_moves = [
             Move::WAIT,
@@ -2140,9 +2132,9 @@ mod tests {
                 p_small_tree_count,
                 p_medium_tree_count,
                 p_large_tree_count,
-                p_is_asleep,
                 &cache
-            ),
+            )
+            .slice(),
             expected_moves
         );
     }

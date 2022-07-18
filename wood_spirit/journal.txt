@@ -1,0 +1,7 @@
+Player 2
+  Strategy
+    Basic naive MCTS
+  Result
+    on 1st turn, I was expanding 2300 nodes and running 1200 simulations (on local)
+    on 1st turn, I was expanding 2300 nodes and running 1200 simulations (on codingame)
+    Rank : Bronze league 3rd
