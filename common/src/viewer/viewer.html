@@ -198,12 +198,15 @@
         row_div.setAttribute("class", "hexagone-row");
         hexagone_container.append(row_div);
 
+        // Create cells
         for (let c of Array(cells_per_row[r]).keys()) {
+          // Create cell and set its style depending on its state
           let cell_div = document.createElement("div");
           cell_div.setAttribute("class", "hexagone-cell");
           row_div.append(cell_div);
 
-          cell = Array.from(board[r][c]);
+          // decompose cell state into characters representing a single state
+          cell = Array.from(board[r][c]["cell_state"]);
           for (let i = 0; i < cell.length; i++) {
             cell_c = cell[i];
             style = cell_classes[i][cell_c];
@@ -221,6 +224,16 @@
                 cell_div.style[k] = style["cell_style"][k];
               }
             }
+          }
+
+          // Add tooltip for the cell if present
+          if (board[r][c]["tooltip"] != null) {
+            cell_div.classList.add("tooltip");
+
+            let tooltip_div = document.createElement("span");
+            tooltip_div.setAttribute("class", "tooltiptext");
+            cell_div.appendChild(tooltip_div);
+            tooltip_div.textContent = board[r][c]["tooltip"];
           }
         }
       }

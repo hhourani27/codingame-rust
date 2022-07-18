@@ -221,9 +221,15 @@ pub mod record {
         pub player_move: String,
     }
 
+    #[derive(Serialize, Default, Clone)]
+    pub struct CellState {
+        pub cell_state: String,
+        pub tooltip: Option<String>,
+    }
+
     #[derive(Serialize, Default)]
     pub struct GameState {
-        pub board: Option<Vec<Vec<String>>>,
+        pub board: Option<Vec<Vec<CellState>>>,
         pub state: HashMap<String, String>,
     }
 }

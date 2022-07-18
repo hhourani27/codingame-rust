@@ -953,7 +953,8 @@ impl Game for WoodSpiritGame {
             }
         }
 
-        let mut board_repr: Vec<Vec<String>> = vec![vec!["".to_string(); 7]; 7];
+        let mut board_repr: Vec<Vec<record::CellState>> =
+            vec![vec![record::CellState::default(); 7]; 7];
         for r in 0..7 {
             for c in 0..7 {
                 board_repr[r][c] = match board_pos_to_cell_id(r, c) {
@@ -1008,9 +1009,18 @@ impl Game for WoodSpiritGame {
                             }
                         };
 
-                        format!("{}{}{}{}{}", richness, player, tree, dormant, shadow)
+                        record::CellState {
+                            cell_state: format!(
+                                "{}{}{}{}{}",
+                                richness, player, tree, dormant, shadow
+                            ),
+                            tooltip: Some(format!("pos: {}", cell_pos)),
+                        }
                     }
-                    None => "....".to_string(),
+                    None => record::CellState {
+                        cell_state: "....".to_string(),
+                        tooltip: None,
+                    },
                 }
             }
         }

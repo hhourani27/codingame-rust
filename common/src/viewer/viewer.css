@@ -86,3 +86,29 @@ div {
   padding: 5px;
   margin: 1px;
 }
+
+.tooltip {
+  position: relative;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  background-color: #262626c0;
+  opacity: 6;
+  color: #fff;
+  text-align: center;
+  border-radius: 5px;
+  padding: 5px 10px;
+  white-space: nowrap;
+
+  /* Position the tooltip */
+  position: absolute;
+  z-index: 1;
+
+  /* Prevent some styles to be inherited from the parent cell div */
+  text-shadow: none;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+}
