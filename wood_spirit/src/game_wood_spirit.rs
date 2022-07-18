@@ -241,8 +241,6 @@ fn valid_moves(
                                 valid_moves.push(Move::COMPLETE(cell_pos as u8))
                             }
                             if p_sun >= p_seed_count as u32 {
-                                let neighbors =
-                                    cache.get_seedable_neighbors(cell_pos, Tree::LARGE_TREE);
                                 for neighbor in
                                     cache.get_seedable_neighbors(cell_pos, Tree::LARGE_TREE)
                                 {

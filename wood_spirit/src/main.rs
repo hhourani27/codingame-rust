@@ -4,6 +4,7 @@ use common::Game;
 use std::time::Instant;
 mod game_wood_spirit;
 mod player_mcts_2;
+mod player_mcts_3;
 mod player_random;
 use game_wood_spirit::WoodSpiritGame;
 
@@ -11,17 +12,17 @@ fn run() {
     const STATS: bool = true;
     const RECORD: bool = false;
     const RUN_PERMUT: bool = true;
-    const RUNS: u32 = 10;
+    const RUNS: u32 = 5;
 
     let record_path = "C:/Users/hhour/Desktop/codingame-rust/wood_spirit/output";
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_mcts_2::play,
+            func: &player_mcts_3::play,
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_random::play,
+            func: &player_mcts_2::play,
             params: None,
         },
     ];
