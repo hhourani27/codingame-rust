@@ -3,8 +3,8 @@ use common::simulator::PlayerPlayFunction;
 use common::Game;
 use std::time::Instant;
 mod game_wood_spirit;
-mod player_mcts_2;
 mod player_mcts_3;
+mod player_mcts_4;
 mod player_random;
 use game_wood_spirit::WoodSpiritGame;
 
@@ -18,11 +18,11 @@ fn run() {
 
     let players: Vec<PlayerPlayFunction> = vec![
         PlayerPlayFunction {
-            func: &player_mcts_3::play,
+            func: &player_mcts_4::play,
             params: None,
         },
         PlayerPlayFunction {
-            func: &player_mcts_2::play,
+            func: &player_mcts_3::play,
             params: None,
         },
     ];
