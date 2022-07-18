@@ -295,7 +295,7 @@ fn init_with_params(
     // Initialize players
     let mut players = [Player {
         move_: None,
-        sun: 2,
+        sun: 0,
         score: 0,
         seed_count: 0,
         small_tree_count: 4,
@@ -2164,5 +2164,23 @@ mod tests {
         assert_eq!(game.board[7].unwrap().is_dormant, true);
         assert_eq!(game.players[0].seed_count, 1);
         assert_eq!(game.players[1].seed_count, 1);
+    }
+
+    #[test]
+    fn test_players_seed_the_same_cell() {
+        let players_initial_small_trees = [[29, 30], [27, 26]];
+        let invalid_cells = [];
+
+        let mut game = init_with_params(&players_initial_small_trees, &invalid_cells);
+        game.play("SEED 29 13".to_string());
+        game.play("SEED 27 13".to_string());
+
+        assert!(game.board[13].is_none());
+        assert_eq!(game.board[29].unwrap().is_dormant, true);
+        assert_eq!(game.board[27].unwrap().is_dormant, true);
+        assert_eq!(game.players[0].seed_count, 0);
+        assert_eq!(game.players[1].seed_count, 0);
+        assert_eq!(game.players[0].sun, 2);
+        assert_eq!(game.players[1].sun, 2);
     }
 }
