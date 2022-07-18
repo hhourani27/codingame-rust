@@ -5,11 +5,21 @@ div {
 #upload {
   border-bottom: solid black;
   border-width: thin;
+  height: 5vh;
 }
 
 #run-info {
   border-bottom: solid black;
   border-width: thin;
+  height: 11vh;
+}
+
+#run-info ul {
+  margin: 0;
+}
+
+#turns {
+  height: 80vh;
 }
 
 
@@ -21,9 +31,13 @@ div {
 #messages {
   float: left;
   width: 25%;
+  height: 80vh;
   overflow: hidden;
   border-left: solid black;
   border-width: thin;
+
+  display: flex;
+  flex-direction: column;
 
 }
 
@@ -34,11 +48,67 @@ div {
 }
 
 #player-input {
-  height: 300px;
-  max-height: 300px;
   overflow-y: scroll;
+  border-bottom: 1px solid black;
+}
+
+#player-output {
+  border-bottom: 1px solid black;
+}
+
+.game-state {
+  display: flex;
+  justify-content: space-around;
+}
+
+.board {
+  display: flex;
 }
 
 .state td {
   vertical-align: top;
+}
+
+.hexagone-row {
+  display: flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.hexagone-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-sizing: border-box;
+  width: 50px;
+  height: 50px;
+  padding: 5px;
+  margin: 1px;
+}
+
+.tooltip {
+  position: relative;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  background-color: #262626c0;
+  opacity: 6;
+  color: #fff;
+  text-align: center;
+  border-radius: 5px;
+  padding: 5px 10px;
+  white-space: nowrap;
+
+  /* Position the tooltip */
+  position: absolute;
+  z-index: 1;
+
+  /* Prevent some styles to be inherited from the parent cell div */
+  text-shadow: none;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
 }

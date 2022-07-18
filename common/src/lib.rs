@@ -6,9 +6,25 @@ use std::fmt::Display;
 #[macro_export]
 macro_rules! assert_vec_eq {
     ($v1:expr, $v2:expr) => {
-        assert!($v1.iter().all(|m| $v2.contains(m)));
-        assert!($v2.iter().all(|m| $v1.contains(m)));
-        assert_eq!($v1.len(), $v2.len());
+        assert_eq!(
+            $v1.len(),
+            $v2.len(),
+            "LEFT & RIGHT do not have the same number of elements. LEFT: {:?}, RIGHT: {:?}",
+            &$v1,
+            &$v2,
+        );
+        assert!(
+            $v1.iter().all(|m| $v2.contains(m)),
+            "Some elements in LEFT are not present in RIGHT. LEFT: {:?}, RIGHT: {:?}",
+            &$v1,
+            &$v2,
+        );
+        assert!(
+            $v2.iter().all(|m| $v1.contains(m)),
+            "Some elements in RIGHT are not present in LEFT. LEFT: {:?}, RIGHT: {:?}",
+            &$v1,
+            &$v2,
+        );
     };
 }
 
@@ -34,7 +50,7 @@ impl<T: Copy + Clone + Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> 
         }
     }
 
-    pub fn add(&mut self, e: T) {
+    pub fn push(&mut self, e: T) {
         self.arr[self.len] = e;
         self.len += 1;
     }
@@ -88,7 +104,7 @@ impl<T: Copy + Clone + Default, const MAX_SIZE: usize> StackVector<T, MAX_SIZE> 
         let mut sv: StackVector<T, MAX_SIZE> = StackVector::new();
 
         for e in v.iter() {
-            sv.add(e.clone());
+            sv.push(e.clone());
         }
         sv
     }
@@ -168,9 +184,14 @@ pub mod record {
     }
 
     #[derive(Serialize)]
+    pub enum BoardType {
+        SQUARE(u32, u32),
+        REGULAR_HEXAGONE_4_SIDES_FLAT_TOP,
+    }
+
+    #[derive(Serialize)]
     pub struct BoardRepresentation {
-        pub rows: u32,
-        pub cols: u32,
+        pub board_type: BoardType,
         pub classes: Vec<HashMap<char, CellClass>>,
     }
 
@@ -200,9 +221,15 @@ pub mod record {
         pub player_move: String,
     }
 
+    #[derive(Serialize, Default, Clone)]
+    pub struct CellState {
+        pub cell_state: String,
+        pub tooltip: Option<String>,
+    }
+
     #[derive(Serialize, Default)]
     pub struct GameState {
-        pub board: Option<Vec<Vec<String>>>,
+        pub board: Option<Vec<Vec<CellState>>>,
         pub state: HashMap<String, String>,
     }
 }
@@ -215,7 +242,7 @@ mod tests {
     fn test_stackvector_remove() {
         let mut list: StackVector<u8, 10> = StackVector::new();
         for i in 0..5 {
-            list.add(i);
+            list.push(i);
         }
 
         assert_eq!(list.len(), 5);
@@ -234,7 +261,7 @@ mod tests {
     fn test_stackvector_slice_after_remove() {
         let mut list: StackVector<u8, 10> = StackVector::new();
         for i in 0..5 {
-            list.add(i);
+            list.push(i);
         }
 
         assert_eq!(list.slice().len(), 5);
@@ -251,7 +278,7 @@ mod tests {
     fn test_stackvector_full_remove_last_element() {
         let mut list: StackVector<u8, 10> = StackVector::new();
         for i in 0..10 {
-            list.add(i);
+            list.push(i);
         }
 
         list.remove(9);
@@ -269,7 +296,7 @@ mod tests {
     fn test_stackvector_full_remove_first_element() {
         let mut list: StackVector<u8, 10> = StackVector::new();
         for i in 0..10 {
-            list.add(i);
+            list.push(i);
         }
 
         list.remove(0);
@@ -282,7 +309,7 @@ mod tests {
     fn test_stackvector_remove_multiple_elements() {
         let mut list: StackVector<u8, 10> = StackVector::new();
         for i in 0..10 {
-            list.add(i);
+            list.push(i);
         }
         list.remove_multi([0, 4]);
         let v: Vec<u8> = list.slice().to_vec();
@@ -291,7 +318,7 @@ mod tests {
         //
         let mut list: StackVector<u8, 10> = StackVector::new();
         for i in 0..10 {
-            list.add(i);
+            list.push(i);
         }
         list.remove_multi([7, 0, 4]);
         let v: Vec<u8> = list.slice().to_vec();
@@ -300,7 +327,7 @@ mod tests {
         //
         let mut list: StackVector<u8, 10> = StackVector::new();
         for i in 0..10 {
-            list.add(i);
+            list.push(i);
         }
         list.remove_multi([5]);
         let v: Vec<u8> = list.slice().to_vec();
