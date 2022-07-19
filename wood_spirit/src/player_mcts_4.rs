@@ -194,6 +194,13 @@ mod game {
 
         let mut valid_moves: StackVector<Move, MAX_VALID_MOVES> = StackVector::new();
 
+        let can_seed: bool;
+        if p_seed_count == 0 && state.day <= 21 {
+            can_seed = true;
+        } else {
+            can_seed = false;
+        }
+
         for (cell_pos, cell) in board.iter().enumerate() {
             match cell {
                 Some(c) => {
@@ -209,7 +216,7 @@ mod game {
                                     valid_moves.push(Move::GROW(cell_pos as u8));
                                 }
 
-                                if p_seed_count == 0 && state.day <= 21 {
+                                if can_seed == true {
                                     for neighbor in
                                         cache.get_seedable_neighbors(cell_pos, Tree::SMALL_TREE)
                                     {
@@ -225,7 +232,7 @@ mod game {
                                     valid_moves.push(Move::GROW(cell_pos as u8))
                                 }
 
-                                if p_seed_count == 0 && state.day <= 21 {
+                                if can_seed == true {
                                     for neighbor in
                                         cache.get_seedable_neighbors(cell_pos, Tree::MEDIUM_TREE)
                                     {
@@ -240,7 +247,7 @@ mod game {
                                 if p_sun >= 4 && state.day >= 11 {
                                     valid_moves.push(Move::COMPLETE(cell_pos as u8))
                                 }
-                                if p_seed_count == 0 && state.day <= 21 {
+                                if can_seed == true {
                                     for neighbor in
                                         cache.get_seedable_neighbors(cell_pos, Tree::LARGE_TREE)
                                     {
@@ -257,8 +264,8 @@ mod game {
                 None => {}
             }
         }
-        valid_moves.push(Move::WAIT);
 
+        valid_moves.push(Move::WAIT);
         (p_id, valid_moves)
     }
 

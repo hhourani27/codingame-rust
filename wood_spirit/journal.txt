@@ -12,5 +12,12 @@ Player 3
       Only SEED if there's 0 seeds
       Do not SEED after the 21st day
       Only COMPLETE after the 11th day
-  Rank : Gold 103rd
+  Rank : Gold league 103rd
+
+Player 4
+  Strategy 
+    Add more pruning to MCTS (inspired by https://forum.codingame.com/t/spring-challenge-2021-feedbacks-strategies/190849/4)
+      Do not SEED immediate neighbor cells
+      Only WAIT if there's no SEED move
+  Rank: Legend league 197th
 
